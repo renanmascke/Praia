@@ -196,6 +196,9 @@ export async function GET() {
             }
         }
 
+        // 5. Atualizar Rankings
+        await (await import('@/lib/ranking')).triggerGlobalRankingUpdate();
+
         const finalResponse = {
             success: true,
             cities: cities.length,

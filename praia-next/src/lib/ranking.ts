@@ -151,3 +151,28 @@ export async function generateDailyRankings(cityId: string, date: Date) {
 
     console.log(`✅ Ranking concluído para ${date.toISOString().split('T')[0]}`);
 }
+
+/**
+ * Dispara a atualização global do ranking para todas as cidades
+ * Abrange o dia de hoje e os próximos 2 dias
+ */
+export async function triggerGlobalRankingUpdate() {
+    console.log(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS...");
+    const { getBrazilToday } = await import('./date-utils');
+    const cities = await prisma.city.findMany();
+
+    // Dia atual
+    const datesToRank = [getBrazilToday()];
+
+    // Próximos 2 dias
+    const d1 = new Date(datesToRank[0]); d1.setDate(d1.getDate() + 1);
+    const d2 = new Date(datesToRank[0]); d2.setDate(d2.getDate() + 2);
+    datesToRank.push(d1, d2);
+
+    for (const city of cities) {
+        for (const date of datesToRank) {
+            await generateDailyRankings(city.id, date);
+        }
+    }
+    console.log(">>> ATUALIZAÇÃO GLOBAL DE RANKINGS CONCLUÍDA.");
+}
