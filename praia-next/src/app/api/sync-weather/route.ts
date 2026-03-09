@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { sendAdminNotification } from '@/lib/telegram-admin';
 import { getBrazilToday } from '@/lib/date-utils';
+import { generateDailyRankings } from '@/lib/ranking';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +141,21 @@ export async function GET() {
                     });
                     totalInserted++;
                 }
+            }
+        }
+
+        // 4. Gerar Ranking para as cidades sincronizadas
+        console.log(">>> GERANDO RANKINGS PÓS-SYNC...");
+        const cities = await prisma.city.findMany();
+        const datesToRank = [getBrazilToday()];
+        // Também gera para os próximos 2 dias (que é o que o WeatherAPI traz)
+        const d1 = new Date(datesToRank[0]); d1.setDate(d1.getDate() + 1);
+        const d2 = new Date(datesToRank[0]); d2.setDate(d2.getDate() + 2);
+        datesToRank.push(d1, d2);
+
+        for (const city of cities) {
+            for (const date of datesToRank) {
+                await generateDailyRankings(city.id, date);
             }
         }
 

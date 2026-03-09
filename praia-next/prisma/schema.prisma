@@ -38,8 +38,22 @@ model Beach {
   anchorId     String?  // FK para o ponto de previsão
   anchor       ForecastAnchor? @relation(fields: [anchorId], references: [id])
   reports      Report[]
+  rankings     BeachRanking[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model BeachRanking {
+  id        String   @id @default(uuid())
+  beachId   String
+  date      DateTime @db.Date
+  score     Float    // Percentual 0-100
+  position  Int      // 1, 2, 3...
+  status    String   // Status IMA na data
+  beach     Beach    @relation(fields: [beachId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([beachId, date])
 }
 
 model ForecastAnchor {
