@@ -4,6 +4,20 @@ import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+    const authHeader = request.headers.get('authorization');
+    const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+    // Se não for cron, poderíamos validar a sessão do admin aqui, 
+    // mas para facilitar o agendamento via vercel.json, 
+    // garantimos que o CRON_SECRET existindo, ele deve ser respeitado.
+    if (process.env.CRON_SECRET && !isCron) {
+        // Permitir chamadas locais para desenvolvimento sem segredo
+        const { hostname } = new URL(request.url);
+        if (hostname !== 'localhost') {
+            return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
+        }
+    }
+
     const { protocol, host } = new URL(request.url);
     const baseUrl = `${protocol}//${host}`;
     const logId = crypto.randomUUID();
