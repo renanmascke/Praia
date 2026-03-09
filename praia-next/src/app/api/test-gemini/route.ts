@@ -19,8 +19,11 @@ export async function GET() {
         const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+        console.log(">>> Testando Gemini Connectivity (gemini-1.5-flash)...");
         const result = await model.generateContent("Diga 'Olá, sistema de ranking pronto!' em JSON format: { 'status': 'ok' }");
-        diagnostics.testResult = result.response.text();
+        const text = result.response.text();
+        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        diagnostics.testResult = JSON.parse(cleanedText);
 
         return NextResponse.json({
             success: true,
@@ -28,6 +31,7 @@ export async function GET() {
             diagnostics
         });
     } catch (error: any) {
+        console.error(">>> ERRO NO TESTE GEMINI:", error.message);
         return NextResponse.json({
             success: false,
             message: "Erro ao conectar com Gemini",

@@ -42,8 +42,9 @@ export async function sendAdminNotification(message: string) {
             }
             return { ok: false, error: errorText };
         } else {
-            console.log("TELEGRAM_ADMIN: Notificação enviada com sucesso.");
-            return await response.json();
+            const data = await response.json();
+            console.log("TELEGRAM_ADMIN: Notificação enviada. Resposta:", JSON.stringify(data));
+            return data;
         }
     } catch (error: any) {
         console.error("TELEGRAM_ADMIN: Erro ao conectar com API do Telegram:", error.message || error);

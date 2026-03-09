@@ -50,11 +50,16 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
     `;
 
     try {
+        console.log(`>>> Chamando Gemini (gemini-1.5-flash) para ${cityName}...`);
         const result = await model.generateContent(prompt);
         const text = result.response.text();
-        return JSON.parse(text);
-    } catch (error) {
-        console.error("Erro ao chamar Gemini para Ranking:", error);
+
+        // Limpar possíveis Markdown fences se a IA ignorar o responseMimeType
+        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanedText);
+    } catch (error: any) {
+        console.error(">>> ERRO CRÍTICO GEMINI:", error.message);
+        if (error.stack) console.error(error.stack);
         throw error;
     }
 }
