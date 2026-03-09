@@ -42,10 +42,10 @@ export async function GET() {
         throw new Error("WEATHER_API_KEY não configurada no .env");
     }
 
-    // Criar Log de Início via Raw SQL
+    // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`
         INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)
-        VALUES ('${logId}', 'WEATHER', NOW(), 'RUNNING', 'Iniciando sincronização com controle de quota...', NOW())
+        VALUES ('${logId}', 'WEATHER', NOW(), 'RUNNING', 'Iniciando sincronização de Clima (WeatherAPI)...', NOW())
     `);
 
     try {
@@ -54,118 +54,88 @@ export async function GET() {
 
         let totalInserted = 0;
         let weatherCalls = 0;
-        let sgCalls = 0;
-        let sgLimitReached = false;
 
         for (const anchor of anchors) {
-            // 1. WeatherAPI (Sempre tenta, limite alto)
-            let weatherData: any = null;
             if (await checkAndIncrementQuota('WEATHERAPI', WEATHERAPI_MONTHLY_LIMIT)) {
                 const weatherUrl = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${anchor.latitude},${anchor.longitude}&days=3&aqi=no&alerts=no&lang=pt`;
                 const res = await fetch(weatherUrl);
+
                 if (res.ok) {
-                    weatherData = await res.json();
+                    const weatherData = await res.json();
                     weatherCalls++;
-                }
-            }
 
-            // 2. StormGlass (Controle Rigoroso)
-            let marineData: any = null;
-            if (STORMGLASS_API_KEY && !sgLimitReached) {
-                if (await checkAndIncrementQuota('STORMGLASS', STORMGLASS_DAILY_LIMIT)) {
-                    const sgUrl = `https://api.stormglass.io/v2/weather/point?lat=${anchor.latitude}&lng=${anchor.longitude}&params=waveHeight,waveDirection,wavePeriod&source=sg`;
-                    const sgRes = await fetch(sgUrl, {
-                        headers: { 'Authorization': STORMGLASS_API_KEY }
-                    });
+                    if (weatherData && weatherData.forecast) {
+                        for (const day of weatherData.forecast.forecastday) {
+                            const targetDate = new Date(`${day.date}T00:00:00.000Z`);
 
-                    if (sgRes.status === 200) {
-                        marineData = await sgRes.json();
-                        sgCalls++;
-                    } else if (sgRes.status === 402 || sgRes.status === 403) {
-                        sgLimitReached = true;
-                        await sendAdminNotification(`⚠️ *Limite Diário StormGlass atingido!* (${STORMGLASS_DAILY_LIMIT}/10). A sincronização de mar foi pausada.`);
-                    }
-                } else {
-                    sgLimitReached = true;
-                }
-            }
+                            // Preservar dados de mar existentes se houver
+                            const existing = await prisma.weatherForecast.findUnique({
+                                where: { anchorId_date: { anchorId: anchor.id, date: targetDate } }
+                            });
 
-            // 3. Processamento
-            if (weatherData && weatherData.forecast) {
-                for (const day of weatherData.forecast.forecastday) {
-                    const targetDate = new Date(`${day.date}T00:00:00.000Z`);
+                            const hourlyDataPoints = day.hour.map((h: any, idx: number) => {
+                                const existingHour = (existing?.hourlyData as any[])?.[idx];
+                                return {
+                                    time: h.time,
+                                    temp: h.temp_c,
+                                    condition: h.condition.text,
+                                    windSpeed: h.wind_kph,
+                                    windDir: h.wind_dir,
+                                    // Manter dados de mar se já existirem no banco
+                                    waveHeight: existingHour?.waveHeight || 0,
+                                    waveDirection: existingHour?.waveDirection || 0,
+                                    wavePeriod: existingHour?.wavePeriod || 0
+                                };
+                            });
 
-                    const hourlyDataPoints = day.hour.map((h: any) => {
-                        const hTime = new Date(h.time).getTime() / 1000;
-                        const marine = marineData?.hours?.find((mh: any) => {
-                            const mt = new Date(mh.time).getTime() / 1000;
-                            return Math.abs(mt - hTime) < 1800;
-                        });
-
-                        return {
-                            time: h.time,
-                            temp: h.temp_c,
-                            condition: h.condition.text,
-                            windSpeed: h.wind_kph,
-                            windDir: h.wind_dir,
-                            waveHeight: marine?.waveHeight?.sg || 0,
-                            waveDirection: marine?.waveDirection?.sg || 0,
-                            wavePeriod: marine?.wavePeriod?.sg || 0
-                        };
-                    });
-
-                    await prisma.weatherForecast.upsert({
-                        where: { anchorId_date: { anchorId: anchor.id, date: targetDate } },
-                        update: {
-                            condition: day.day.condition.text,
-                            tempMax: day.day.maxtemp_c,
-                            tempMin: day.day.mintemp_c,
-                            rainChance: day.day.daily_chance_of_rain,
-                            rainAmount: day.day.totalprecip_mm,
-                            windDir: day.hour[12]?.wind_dir || 'NE',
-                            windSpeed: day.day.maxwind_kph,
-                            hourlyData: hourlyDataPoints
-                        },
-                        create: {
-                            anchorId: anchor.id,
-                            date: targetDate,
-                            condition: day.day.condition.text,
-                            tempMax: day.day.maxtemp_c,
-                            tempMin: day.day.mintemp_c,
-                            rainChance: day.day.daily_chance_of_rain,
-                            rainAmount: day.day.totalprecip_mm,
-                            windDir: day.hour[12]?.wind_dir || 'NE',
-                            windSpeed: day.day.maxwind_kph,
-                            hourlyData: hourlyDataPoints
+                            await prisma.weatherForecast.upsert({
+                                where: { anchorId_date: { anchorId: anchor.id, date: targetDate } },
+                                update: {
+                                    condition: day.day.condition.text,
+                                    tempMax: day.day.maxtemp_c,
+                                    tempMin: day.day.mintemp_c,
+                                    rainChance: day.day.daily_chance_of_rain,
+                                    rainAmount: day.day.totalprecip_mm,
+                                    windDir: day.hour[12]?.wind_dir || 'NE',
+                                    windSpeed: day.day.maxwind_kph,
+                                    hourlyData: hourlyDataPoints
+                                },
+                                create: {
+                                    anchorId: anchor.id,
+                                    date: targetDate,
+                                    condition: day.day.condition.text,
+                                    tempMax: day.day.maxtemp_c,
+                                    tempMin: day.day.mintemp_c,
+                                    rainChance: day.day.daily_chance_of_rain,
+                                    rainAmount: day.day.totalprecip_mm,
+                                    windDir: day.hour[12]?.wind_dir || 'NE',
+                                    windSpeed: day.day.maxwind_kph,
+                                    hourlyData: hourlyDataPoints
+                                }
+                            });
+                            totalInserted++;
                         }
-                    });
-                    totalInserted++;
+                    }
                 }
             }
         }
 
-        // 4. Gerar Ranking para as cidades sincronizadas
-        await (await import('@/lib/ranking')).triggerGlobalRankingUpdate();
-
-        const statsMsg = `✅ *Sincronização Concluída*\n🌍 Pontos: ${anchors.length}\n🌦️ WeatherAPI: ${weatherCalls}\n🌊 StormGlass: ${sgCalls}`;
-        await sendAdminNotification(statsMsg);
-
-        const finalStatus = sgLimitReached ? 'PARTIAL' : 'SUCCESS';
-        const finalMessage = sgLimitReached
-            ? `Parcial: ${weatherCalls} weather, cota StormGlass esgotada.`
-            : `Sucesso: ${weatherCalls} weather, ${sgCalls} marine.`;
+        const finalMessage = `Sucesso: ${weatherCalls} chamadas WeatherAPI concluídas.`;
 
         // Log final no banco
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog
-            SET endTime = NOW(), status = '${finalStatus}', message = '${finalMessage}', response = '{"weather":${weatherCalls},"marine":${sgCalls},"sgLimitReached":${sgLimitReached}}'
+            SET endTime = NOW(), status = 'SUCCESS', message = '${finalMessage}', response = '{"weatherCalls":${weatherCalls}}'
             WHERE id = '${logId}'
         `);
 
-        return NextResponse.json({ success: true, status: finalStatus, weather: weatherCalls, marine: sgCalls, sgLimitReached });
+        return NextResponse.json({ success: true, weather: weatherCalls });
 
     } catch (error: any) {
-        await sendAdminNotification(`❌ *ERRO NA SINCRONIZAÇÃO*\n${error.message}`);
+        console.error(">>> ERRO NO SYNC WEATHER <<<", error);
+        await (prisma as any).$executeRawUnsafe(`
+            UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
+        `);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
