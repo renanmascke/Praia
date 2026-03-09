@@ -133,15 +133,17 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
                                     </div>
 
                                     {/* Status IMA e Pontos */}
-                                    <div className="flex items-center gap-6 lg:ml-6 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 pt-4 lg:pt-0 lg:pl-6">
-                                        <div className="space-y-1">
+                                    <div className="flex items-center gap-6 lg:ml-6 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 pt-4 lg:pt-0 lg:pl-6 min-w-[280px] justify-end">
+                                        <div className="space-y-1 w-32 shrink-0">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status IMA</p>
-                                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap ${item.status.includes('Indeterminado') ? 'bg-amber-100 text-amber-600' :
-                                                item.status === 'Própria' ? 'bg-emerald-100 text-emerald-600' :
-                                                    item.status === 'Mista' ? 'bg-sky-100 text-sky-600' : 'bg-rose-100 text-rose-600'
-                                                }`}>
-                                                {item.status}
-                                            </span>
+                                            <div className="flex">
+                                                <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap w-full text-center ${item.status.includes('Indeterminado') ? 'bg-amber-100 text-amber-600' :
+                                                    item.status === 'Própria' ? 'bg-emerald-100 text-emerald-600' :
+                                                        item.status === 'Mista' ? 'bg-sky-100 text-sky-600' : 'bg-rose-100 text-rose-600'
+                                                    }`}>
+                                                    {item.status}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center truncate">Laudos</p>

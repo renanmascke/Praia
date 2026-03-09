@@ -98,9 +98,6 @@ export async function generateDailyRankings(cityId: string, date: Date) {
 
         // Ajuste do status para exibição quando indeterminado
         let status = report?.status || 'Indeterminado';
-        if (status === 'Indeterminado') {
-            status = 'Indeterminado (Necessita Consulta)';
-        }
 
         results.push({
             beachId: beach.id,
