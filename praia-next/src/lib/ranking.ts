@@ -81,22 +81,31 @@ export async function generateDailyRankings(cityId: string, date: Date) {
         include: { anchor: true }
     });
 
+    if (beaches.length === 0) return;
+
+    // 1. Buscar tudo em massa (Forecasts e Reports)
+    const anchorIds = Array.from(new Set(beaches.map(b => b.anchorId).filter(id => !!id))) as string[];
+    const forecasts = await prisma.weatherForecast.findMany({
+        where: { anchorId: { in: anchorIds }, date }
+    });
+
+    const beachIds = beaches.map(b => b.id);
+    const reports = await prisma.report.findMany({
+        where: { beachId: { in: beachIds } },
+        orderBy: { date: 'desc' }
+    });
+
     const results: RankingScore[] = [];
     const beachesDataForAi: any[] = [];
 
+    console.log(`>>> Processando scores para ${beaches.length} praias...`);
+
     for (const beach of beaches) {
-        // Buscar previsão para o anchor desta praia
-        const forecast = beach.anchorId ? await prisma.weatherForecast.findUnique({
-            where: { anchorId_date: { anchorId: beach.anchorId, date } }
-        }) : null;
+        const forecast = forecasts.find(f => f.anchorId === beach.anchorId);
+        // O report mais recente da praia (reports já vem por date desc)
+        const report = reports.find(r => r.beachId === beach.id);
 
-        // Buscar relatório IMA mais recente
-        const report = await prisma.report.findFirst({
-            where: { beachId: beach.id },
-            orderBy: { date: 'desc' }
-        });
-
-        // Coletar dados para a IA
+        // Dados para IA
         beachesDataForAi.push({
             beachId: beach.id,
             name: beach.name,
@@ -104,7 +113,7 @@ export async function generateDailyRankings(cityId: string, date: Date) {
             forecast: forecast ? {
                 condition: forecast.condition,
                 windDir: forecast.windDir,
-                waveHeight: (forecast.hourlyData as any[])?.[12]?.waveHeight || 0 // Usar meio-dia como ref
+                waveHeight: (forecast.hourlyData as any[])?.[12]?.waveHeight || 0
             } : null,
             report: report ? {
                 status: report.status,
@@ -112,7 +121,6 @@ export async function generateDailyRankings(cityId: string, date: Date) {
             } : null
         });
 
-        // Cálculo matemático inicial (Fica como Fallback)
         const mathScore = await calculateBeachScore(beach, forecast, report);
         results.push({
             beachId: beach.id,
@@ -125,10 +133,11 @@ export async function generateDailyRankings(cityId: string, date: Date) {
         });
     }
 
-    // Tentar Refinar o Ranking com Gemini IA
-    if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    // 2. Refinar com Gemini
+    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (geminiKey) {
         try {
-            console.log(`>>> Solicitando Ranking via IA para ${city?.name}...`);
+            console.log(`>>> Solicitando IA Gemini para ${city?.name} (${beachesDataForAi.length} praias)...`);
             const { generateCityRanking } = await import('./gemini');
             const aiResults = await generateCityRanking(city?.name || "Santa Catarina", beachesDataForAi);
 
@@ -139,51 +148,51 @@ export async function generateDailyRankings(cityId: string, date: Date) {
                     results[index].aiCommentary = ai.commentary;
                 }
             }
-            console.log(`>>> Ranking via IA processado com sucesso.`);
-        } catch (error) {
-            console.error(">>> FALHA NO RANKING IA, USANDO CÁLCULO MATEMÁTICO <<<", error);
+            console.log(`>>> IA Gemini processada com sucesso.`);
+        } catch (error: any) {
+            console.error(">>> ERRO GEMINI IA:", error.message);
         }
+    } else {
+        console.log(">>> Gemini IA ignorada (GOOGLE_GENERATIVE_AI_API_KEY ausente).");
     }
 
-    // Ordenação final
+    // 3. Ordenação
     const sorted = results.sort((a, b) => {
         const aIsBad = a.totalPoints > 0 && a.proprioCount === 0;
         const bIsBad = b.totalPoints > 0 && b.proprioCount === 0;
-
         if (aIsBad && !bIsBad) return 1;
         if (!aIsBad && bIsBad) return -1;
         return b.score - a.score;
     });
 
-    // Salvar no banco
-    for (let i = 0; i < sorted.length; i++) {
-        const item = sorted[i];
-        await (prisma as any).beachRanking.upsert({
-            where: { beachId_date: { beachId: item.beachId, date } },
-            update: {
-                score: item.score,
-                position: i + 1,
-                status: item.status,
-                totalPoints: item.totalPoints,
-                proprioCount: item.proprioCount,
-                improprioCount: item.improprioCount,
-                aiCommentary: item.aiCommentary
-            },
-            create: {
-                beachId: item.beachId,
-                date,
-                score: item.score,
-                position: i + 1,
-                status: item.status,
-                totalPoints: item.totalPoints,
-                proprioCount: item.proprioCount,
-                improprioCount: item.improprioCount,
-                aiCommentary: item.aiCommentary
-            }
-        });
-    }
+    // 4. Salvar tudo via Transação (MUITO mais rápido)
+    console.log(`>>> Salvando ${sorted.length} rankings em lote...`);
+    const upsertPromises = sorted.map((item, i) => (prisma as any).beachRanking.upsert({
+        where: { beachId_date: { beachId: item.beachId, date } },
+        update: {
+            score: item.score,
+            position: i + 1,
+            status: item.status,
+            totalPoints: item.totalPoints,
+            proprioCount: item.proprioCount,
+            improprioCount: item.improprioCount,
+            aiCommentary: item.aiCommentary
+        },
+        create: {
+            beachId: item.beachId,
+            date,
+            score: item.score,
+            position: i + 1,
+            status: item.status,
+            totalPoints: item.totalPoints,
+            proprioCount: item.proprioCount,
+            improprioCount: item.improprioCount,
+            aiCommentary: item.aiCommentary
+        }
+    }));
 
-    console.log(`✅ Ranking concluído para ${date.toISOString().split('T')[0]}`);
+    await prisma.$transaction(upsertPromises);
+    console.log(`✅ Ranking concluído (${city?.name}) para ${date.toISOString().split('T')[0]}`);
 }
 
 /**
