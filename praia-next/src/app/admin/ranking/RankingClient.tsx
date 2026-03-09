@@ -18,9 +18,10 @@ interface RankingItem {
     };
 }
 
-export default function RankingClient({ initialCities, initialRegions }: { initialCities: any[], initialRegions: string[] }) {
+export default function RankingClient({ initialCities, initialRegions, initialAnchors }: { initialCities: any[], initialRegions: string[], initialAnchors: any[] }) {
     const [selectedCity, setSelectedCity] = useState(initialCities[0]?.id || '');
     const [selectedRegion, setSelectedRegion] = useState('');
+    const [selectedAnchor, setSelectedAnchor] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [rankings, setRankings] = useState<RankingItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -28,7 +29,7 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
     const fetchRankings = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/rankings?cityId=${selectedCity}&date=${selectedDate}&region=${selectedRegion}`);
+            const res = await fetch(`/api/rankings?cityId=${selectedCity}&date=${selectedDate}&region=${selectedRegion}&anchorId=${selectedAnchor}`);
             const data = await res.json();
             if (data.success) {
                 setRankings(data.data);
@@ -44,12 +45,12 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
         if (selectedCity && selectedDate) {
             fetchRankings();
         }
-    }, [selectedCity, selectedDate, selectedRegion]);
+    }, [selectedCity, selectedDate, selectedRegion, selectedAnchor]);
 
     return (
         <div className="flex flex-col gap-6 flex-1 min-h-0">
             {/* Filtros */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
                 <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Cidade</label>
                     <select
@@ -73,6 +74,20 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
                         <option value="">Todas as Regiões</option>
                         {initialRegions.map(region => (
                             <option key={region} value={region}>{formatRegionLocale(region)}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Ponto de Previsão</label>
+                    <select
+                        value={selectedAnchor}
+                        onChange={(e) => setSelectedAnchor(e.target.value)}
+                        className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-orange-500 transition-all appearance-none cursor-pointer"
+                    >
+                        <option value="">Todos os Pontos</option>
+                        {initialAnchors.map(anchor => (
+                            <option key={anchor.id} value={anchor.id}>{anchor.name}</option>
                         ))}
                     </select>
                 </div>

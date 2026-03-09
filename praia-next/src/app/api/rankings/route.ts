@@ -8,6 +8,7 @@ export async function GET(request: Request) {
     const cityId = searchParams.get('cityId');
     const dateStr = searchParams.get('date');
     const region = searchParams.get('region');
+    const anchorId = searchParams.get('anchorId');
 
     if (!cityId || !dateStr) {
         return NextResponse.json({ success: false, error: 'City and Date are required' }, { status: 400 });
@@ -16,12 +17,13 @@ export async function GET(request: Request) {
     try {
         const date = new Date(dateStr + 'T00:00:00Z');
 
-        const rankings = await prisma.beachRanking.findMany({
+        const rankings = await (prisma as any).beachRanking.findMany({
             where: {
                 date,
                 beach: {
                     cityId,
-                    ...(region ? { region } : {})
+                    ...(region ? { region } : {}),
+                    ...(anchorId ? { anchorId } : {})
                 }
             },
             include: {

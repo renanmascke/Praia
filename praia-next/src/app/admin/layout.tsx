@@ -23,7 +23,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     <Link href="/admin/praias" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
                         🏖️ Gestão de Praias
                     </Link>
-                    <Link href="/admin/ranking" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide border-l-4 border-orange-500 bg-slate-800/50 text-white">
+                    <Link href="/admin/ranking" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
                         🏆 Ranking Diário
                     </Link>
                     <Link href="/admin/previsao" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
