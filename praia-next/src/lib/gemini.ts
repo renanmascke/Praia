@@ -15,7 +15,7 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
     }
 
     const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash",
         generationConfig: { responseMimeType: "application/json" }
     });
 
@@ -50,7 +50,7 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
     `;
 
     try {
-        console.log(`>>> Chamando Gemini (gemini-1.5-flash) para ${cityName}...`);
+        console.log(`>>> Chamando Gemini (gemini-2.0-flash) para ${cityName}...`);
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
