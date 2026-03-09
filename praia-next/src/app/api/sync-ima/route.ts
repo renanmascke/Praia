@@ -75,7 +75,7 @@ export async function GET() {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                    'Referer': 'https://balneabilidade.ima.sc.gov.br/relatorio/historico'
+                    'Referer': targetUrl
                 }
             });
 
