@@ -217,7 +217,7 @@ export async function generateDailyRankings(cityId: string, date: Date) {
                 };
 
                 return {
-                    anchorName: f.anchorId, // Para a IA entender regiões
+                    anchorName: (f.anchor as any)?.name || "Região", // Nome legível para a IA
                     dailyMax: f.tempMax,
                     dailyMin: f.tempMin,
                     periods: {
