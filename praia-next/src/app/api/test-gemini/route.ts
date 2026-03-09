@@ -17,35 +17,30 @@ export async function GET() {
 
     try {
         const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
-        const modelNames = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash"];
-        const results: any[] = [];
+        const modelName = "gemini-1.5-flash";
 
-        for (const modelName of modelNames) {
-            try {
-                console.log(`>>> Testando Gemini Connectivity (${modelName})...`);
-                const model = genAI.getGenerativeModel({ model: modelName });
-                const result = await model.generateContent("Diga 'OK' em JSON: { 'status': 'ok' }");
-                const text = result.response.text();
-                results.push({ model: modelName, status: "SUCCESS", response: text });
-            } catch (err: any) {
-                results.push({ model: modelName, status: "FAILED", error: err.message });
-            }
-        }
+        console.log(`>>> Testando Gemini Connectivity (${modelName})...`);
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent("Diga 'OK' em JSON: { 'status': 'ok' }");
+        const text = result.response.text();
+        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        diagnostics.testResult = results;
-
-        const anySuccess = results.some(r => r.status === "SUCCESS");
+        diagnostics.testResult = {
+            model: modelName,
+            status: "SUCCESS",
+            response: JSON.parse(cleanedText)
+        };
 
         return NextResponse.json({
-            success: anySuccess,
-            message: anySuccess ? "Conectividade parcial ou total com Gemini!" : "Todos os modelos falharam.",
+            success: true,
+            message: "Conectividade com Gemini OK!",
             diagnostics
         });
     } catch (error: any) {
-        console.error(">>> ERRO NO TESTE GLOBAL GEMINI:", error.message);
+        console.error(">>> ERRO NO TESTE GEMINI:", error.message);
         return NextResponse.json({
             success: false,
-            message: "Erro catastrófico no teste de Gemini",
+            message: "Falha na conectividade com Gemini",
             error: error.message,
             diagnostics
         }, { status: 500 });
