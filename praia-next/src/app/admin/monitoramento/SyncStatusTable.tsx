@@ -26,13 +26,22 @@ export default function SyncStatusTable({ logs }: { logs: any[] }) {
                 <tbody className="divide-y divide-slate-100">
                     {logs.map((log) => (
                         <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group">
-                            <td className="p-2.5 px-4">
-                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest flex items-center gap-2 w-fit ${log.type === 'IMA'
-                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                                    : 'bg-sky-50 text-sky-600 border border-sky-100'
-                                    }`}>
-                                    {log.type === 'IMA' ? '🧪' : '🌤️'} {log.type}
-                                </span>
+                            <td className="p-2.5 px-4 font-bold">
+                                {(() => {
+                                    const config: Record<string, { icon: string, class: string }> = {
+                                        IMA: { icon: '🧪', class: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+                                        WEATHER: { icon: '🌤️', class: 'bg-sky-50 text-sky-600 border-sky-100' },
+                                        MARINE: { icon: '🌊', class: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
+                                        RANKING: { icon: '🏆', class: 'bg-orange-50 text-orange-600 border-orange-100' },
+                                        ALL: { icon: '⚡', class: 'bg-slate-800 text-white border-slate-700' }
+                                    };
+                                    const c = config[log.type] || { icon: '⚙️', class: 'bg-slate-50 text-slate-600 border-slate-100' };
+                                    return (
+                                        <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest flex items-center gap-2 w-fit border ${c.class}`}>
+                                            <span className="text-xs">{c.icon}</span> {log.type}
+                                        </span>
+                                    );
+                                })()}
                             </td>
                             <td className="p-2.5 px-4">
                                 <div className="text-[10px] font-bold text-slate-700">
@@ -44,9 +53,9 @@ export default function SyncStatusTable({ logs }: { logs: any[] }) {
                             </td>
                             <td className="p-2.5 px-4 text-center">
                                 <span className={`px-2.5 py-1 text-[8px] font-bold uppercase tracking-widest rounded-full border ${log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                                        log.status === 'PARTIAL' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                            log.status === 'RUNNING' ? 'bg-blue-50 text-blue-600 border-blue-200 animate-pulse' :
-                                                'bg-rose-50 text-rose-600 border-rose-200'
+                                    log.status === 'PARTIAL' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                        log.status === 'RUNNING' ? 'bg-blue-50 text-blue-600 border-blue-200 animate-pulse' :
+                                            'bg-rose-50 text-rose-600 border-rose-200'
                                     }`}>
                                     {log.status === 'SUCCESS' ? 'Sucesso' :
                                         log.status === 'PARTIAL' ? 'Parcial' :

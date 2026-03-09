@@ -121,31 +121,40 @@ export default function ApiQuotaDisplay({ initialQuotas, history, weatherMonthly
                     return (
                         <div
                             key={p.provider}
-                            className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition-all cursor-pointer group"
+                            className="bg-white/60 backdrop-blur-md p-6 rounded-[1.5rem] border border-slate-200/50 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group relative overflow-hidden"
                             onClick={() => setSelectedProvider(p.provider)}
                         >
-                            <div className="flex justify-between items-center mb-3">
-                                <div>
-                                    <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm uppercase">
-                                        {p.label}
-                                    </h3>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cota {p.type}</p>
-                                </div>
-                                <span className={`text-xs font-black px-2 py-1 rounded-lg ${isLimitReached ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
-                                    }`}>
-                                    {currentCount.toLocaleString()} / {p.limit.toLocaleString()}
-                                </span>
+                            <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <span className="text-4xl">{p.label.split(' ')[0]}</span>
                             </div>
 
-                            <div className="w-full bg-slate-100 rounded-full h-3 mb-2 overflow-hidden border border-slate-200/50">
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <div>
+                                    <h3 className="font-black text-slate-800 flex items-center gap-2 text-xs uppercase tracking-tighter">
+                                        {p.label.split(' ').slice(1).join(' ')}
+                                    </h3>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-0.5">Cota {p.type}</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${isLimitReached ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
+                                        {currentCount.toLocaleString()} <span className="text-slate-300 mx-0.5">/</span> {p.limit.toLocaleString()}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="w-full bg-slate-100/50 rounded-full h-2 mb-3 overflow-hidden border border-slate-200/20 relative z-10">
                                 <div
                                     className={`h-full transition-all duration-1000 rounded-full ${p.color} ${isLimitReached ? 'animate-pulse' : ''}`}
                                     style={{ width: `${percentage}%` }}
                                 />
                             </div>
-                            <div className="flex justify-between items-center">
-                                <p className="text-[10px] text-slate-400 font-medium italic">Clique para ver histórico</p>
-                                <p className="text-[10px] font-black text-blue-500 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Ver Gráfico →</p>
+
+                            <div className="flex justify-between items-center relative z-10">
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5 leading-none">
+                                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                    Gráfico de Consumo
+                                </p>
+                                <span className="text-[10px] font-black text-blue-500 uppercase tracking-tighter translate-x-1 group-hover:translate-x-0 opacity-0 group-hover:opacity-100 transition-all duration-300">Detalhes →</span>
                             </div>
                         </div>
                     );

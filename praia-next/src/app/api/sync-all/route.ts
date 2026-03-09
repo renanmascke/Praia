@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     const { protocol, host } = new URL(request.url);
     const baseUrl = `${protocol}//${host}`;
+    const logId = crypto.randomUUID();
+
+    // Criar Log de Início
+    await (prisma as any).$executeRawUnsafe(`
+        INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)
+        VALUES ('${logId}', 'ALL', NOW(), 'RUNNING', 'Iniciando Sincronização Completa (IMA -> Clima -> Mar -> Ranking)...', NOW())
+    `);
 
     const results = {
         ima: null,
@@ -37,10 +45,23 @@ export async function GET(request: Request) {
         results.ranking = await resRanking.json();
 
         console.log(">>> SINCRONIZAÇÃO COMPLETA FINALIZADA <<<");
+
+        // Atualizar Log de Sucesso
+        await (prisma as any).$executeRawUnsafe(`
+            UPDATE SyncLog 
+            SET endTime = NOW(), status = 'SUCCESS', message = 'Sucesso: Sincronização completa finalizada.', response = '${JSON.stringify(results).replace(/'/g, "''")}'
+            WHERE id = '${logId}'
+        `);
+
         return NextResponse.json({ success: true, results });
 
     } catch (error: any) {
         console.error(">>> ERRO NA SINCRONIZAÇÃO COMPLETA <<<", error);
+
+        await (prisma as any).$executeRawUnsafe(`
+            UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
+        `);
+
         return NextResponse.json({ success: false, error: error.message, results }, { status: 500 });
     }
 }
