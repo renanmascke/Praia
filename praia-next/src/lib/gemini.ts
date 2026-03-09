@@ -31,6 +31,7 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
             Critérios de Avaliação (Importância Decrescente - FOCO EM LAZER/BANHO):
             1. Balneabilidade (IMA): 
                - Status "Impróprio" ou alta concentração de E.Coli = Nota Baixa (máx 30). É o fator eliminatório.
+               - Status "Mista" = Nota Média (máx 50). Significa que alguns pontos da praia estão próprios e outros impróprios. Destaque essa incerteza no comentário e recomende cautela.
                - Status "Próprio" ou "Indeterminado" = Nota Alta (base 70).
             2. Vento e Guarda-Sol (Conforto Térmico):
                - Vento ideal para o microclima (direção abrigada) = +20 pontos. Indica mar calmo e sem vento "batendo" no guarda-sol.
