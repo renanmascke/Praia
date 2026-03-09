@@ -8,6 +8,19 @@ export async function GET() {
     const token = process.env.TELEGRAM_ADMIN_TOKEN || 'NÃO CONFIGURADO';
     const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID || 'NÃO CONFIGURADO';
 
+    let botInfo = null;
+    if (token !== 'NÃO CONFIGURADO') {
+        try {
+            const botRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+            if (botRes.ok) {
+                const data = await botRes.json();
+                botInfo = data.result;
+            }
+        } catch (e) {
+            console.error("Erro ao buscar getMe:", e);
+        }
+    }
+
     try {
         const success = await sendAdminNotification("🚀 *Teste de Notificação*\n\nSe você recebeu isso, a integração com o Telegram na Vercel está funcionando!");
 
@@ -18,7 +31,9 @@ export async function GET() {
                 tokenPresent: token !== 'NÃO CONFIGURADO',
                 tokenStart: token !== 'NÃO CONFIGURADO' ? `${token.substring(0, 5)}...` : 'N/A',
                 chatIdPresent: chatId !== 'NÃO CONFIGURADO',
-                chatId: chatId !== 'NÃO CONFIGURADO' ? chatId : 'N/A'
+                chatId: chatId !== 'NÃO CONFIGURADO' ? chatId : 'N/A',
+                botUsername: botInfo?.username || 'N/A',
+                botName: botInfo?.first_name || 'N/A'
             }
         });
     } catch (error: any) {
