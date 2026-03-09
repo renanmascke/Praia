@@ -67,10 +67,9 @@ export default function BeachModal({ isOpen, onClose, beach }: BeachModalProps) 
         setAnchors(anchorData);
         setCities(cityData);
 
-        // If creating new beach and cities exist, set default to Floripa or first one
+        // Set default city for new beach
         if (!beach && cityData.length > 0) {
-            const floripa = cityData.find((c: any) => c.name === 'Florianópolis');
-            setFormData(prev => ({ ...prev, cityId: floripa ? floripa.id : cityData[0].id }));
+            setFormData(prev => ({ ...prev, cityId: cityData[0].id }));
         }
     }
 
@@ -192,7 +191,7 @@ export default function BeachModal({ isOpen, onClose, beach }: BeachModalProps) 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="col-span-2">
                                         <input
-                                            placeholder="Apelido do Ponto (Ex: Floripa Norte)"
+                                            placeholder="Apelido do Ponto (Ex: Centro Sul)"
                                             value={formData.newAnchor.name}
                                             onChange={e => setFormData({ ...formData, newAnchor: { ...formData.newAnchor, name: e.target.value } })}
                                             className="w-full bg-white border border-blue-200 p-2.5 rounded-xl text-xs font-bold outline-none focus:border-blue-500"

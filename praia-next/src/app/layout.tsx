@@ -8,8 +8,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'inDica Praia: Floripa',
-  description: 'Boletim em tempo real das melhores e mais seguras praias para banho em Florianópolis.',
+  title: 'inDica Praia',
+  description: 'Boletim em tempo real das melhores e mais seguras praias no litoral.',
 };
 
 export default function RootLayout({

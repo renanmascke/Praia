@@ -33,8 +33,8 @@ export async function GET() {
             console.log(`>>> Sincronizando cidade: ${city.name} (IMA ID: ${city.imaId})`);
 
             // 1. Pré-Injetar as Praias do Whitelist para esta cidade (se aplicável)
-            // Por enquanto o whitelist é focado em Floripa, mas podemos filtrar ou expandir
-            if (city.name === 'Florianópolis') {
+            // Sincroniza praias do whitelist para a cidade atual
+            if (city.imaId) {
                 for (const bw of beachWhitelist) {
                     await prisma.beach.upsert({
                         where: { name: bw.target },

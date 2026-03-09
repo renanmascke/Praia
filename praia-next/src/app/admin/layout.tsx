@@ -12,7 +12,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         inDica Admin <span className="text-sky-500">PRO</span>
                     </h2>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                        Gestão Floripa
+                        Gestão Multicidade
                     </p>
                 </div>
 

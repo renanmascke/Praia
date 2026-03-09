@@ -16,7 +16,7 @@ export async function GET() {
         const user = await prisma.user.create({
             data: {
                 email: 'admin@praia.com.br',
-                name: 'Administrador Floripa',
+                name: 'Administrador do Sistema',
                 password: hashedPassword
             }
         });
