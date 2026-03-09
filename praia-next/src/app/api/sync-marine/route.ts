@@ -23,7 +23,9 @@ async function checkAndIncrementQuota(provider: string, limit: number) {
     return true;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const silent = searchParams.get('silent') === 'true';
     const logId = crypto.randomUUID();
     const startTime = new Date();
 
@@ -103,10 +105,19 @@ export async function GET() {
             WHERE id = '${logId}'
         `);
 
+        if (!silent) {
+            await sendAdminNotification(`🌊 *Sincronização de Mar Concluída*\n\nStatus: ${finalStatus} ${sgLimitReached ? '⚠️' : '✅'}\nChamadas: ${sgCalls}`);
+        }
+
         return NextResponse.json({ success: true, marine: sgCalls, limitReached: sgLimitReached });
 
     } catch (error: any) {
         console.error(">>> ERRO NO SYNC MARINE <<<", error);
+
+        if (!silent) {
+            await sendAdminNotification(`❌ *ERRO NO SYNC MAR*\n\nErro: ${error.message}`);
+        }
+
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);

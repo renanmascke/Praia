@@ -3,9 +3,13 @@ import prisma from '@/lib/prisma';
 import { getBrazilToday } from '@/lib/date-utils';
 import { generateDailyRankings, triggerGlobalRankingUpdate } from '@/lib/ranking';
 
+import { sendAdminNotification } from '@/lib/telegram-admin';
+
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const silent = searchParams.get('silent') === 'true';
     console.log(">>> RECALCULO DE RANKING MANUAL INICIADO <<<");
     const logId = crypto.randomUUID();
 
@@ -25,9 +29,17 @@ export async function GET() {
             WHERE id = '${logId}'
         `);
 
+        if (!silent) {
+            await sendAdminNotification(`🏆 *Ranking Recalculado*\n\nStatus: Sucesso ✅`);
+        }
+
         return NextResponse.json({ success: true, message: 'Ranking recalculado com sucesso!' });
     } catch (error: any) {
         console.error('Erro no recalculo manual do ranking:', error);
+
+        if (!silent) {
+            await sendAdminNotification(`❌ *ERRO NO RECALCULO DE RANKING*\n\nErro: ${error.message}`);
+        }
 
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'

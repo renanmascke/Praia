@@ -40,22 +40,22 @@ export async function GET(request: Request) {
 
         // 1. IMA
         console.log("1/4: Sincronizando IMA...");
-        const resIma = await fetch(`${baseUrl}/api/sync-ima`);
+        const resIma = await fetch(`${baseUrl}/api/sync-ima?silent=true`);
         results.ima = await resIma.json();
 
         // 2. Weather
         console.log("2/4: Sincronizando Weather...");
-        const resWeather = await fetch(`${baseUrl}/api/sync-weather`);
+        const resWeather = await fetch(`${baseUrl}/api/sync-weather?silent=true`);
         results.weather = await resWeather.json();
 
         // 3. Marine
         console.log("3/4: Sincronizando Marine...");
-        const resMarine = await fetch(`${baseUrl}/api/sync-marine`);
+        const resMarine = await fetch(`${baseUrl}/api/sync-marine?silent=true`);
         results.marine = await resMarine.json();
 
         // 4. Ranking
         console.log("4/4: Recalculando Ranking...");
-        const resRanking = await fetch(`${baseUrl}/api/sync-ranking`);
+        const resRanking = await fetch(`${baseUrl}/api/sync-ranking?silent=true`);
         results.ranking = await resRanking.json();
 
         console.log(">>> SINCRONIZAÇÃO COMPLETA FINALIZADA <<<");
@@ -67,10 +67,29 @@ export async function GET(request: Request) {
             WHERE id = '${logId}'
         `);
 
+        // Enviar Notificação Telegram
+        const telegramMessage = `
+✅ *Sincronização Completa Finalizada*
+📅 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+
+🧪 *IMA:* ${results.ima?.success ? 'Sucesso ✅' : 'Falha ❌'}
+🌤️ *Clima:* ${results.weather?.success ? `${results.weather.weather} calls ✅` : 'Falha ❌'}
+🌊 *Mar:* ${results.marine?.success ? `${results.marine.marine} calls ✅` : 'Falha ❌'}
+🏆 *Ranking:* ${results.ranking?.success ? 'Recalculado ✅' : 'Falha ❌'}
+
+🚀 _Executado via ${isCron ? 'Cron Job' : 'Manual'}_
+        `.trim();
+
+        const { sendAdminNotification } = await import('@/lib/telegram-admin');
+        await sendAdminNotification(telegramMessage);
+
         return NextResponse.json({ success: true, results });
 
     } catch (error: any) {
         console.error(">>> ERRO NA SINCRONIZAÇÃO COMPLETA <<<", error);
+
+        const { sendAdminNotification } = await import('@/lib/telegram-admin');
+        await sendAdminNotification(`❌ *ERRO NA SINCRONIZAÇÃO COMPLETA*\n\nErro: ${error.message}`);
 
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'

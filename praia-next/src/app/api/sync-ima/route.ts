@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import prisma from '@/lib/prisma';
 import { beachWhitelist } from '@/lib/data';
+import { sendAdminNotification } from '@/lib/telegram-admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const silent = searchParams.get('silent') === 'true';
     console.log(">>> SYNC IMA INICIADO (MULTI-CIDADE) <<<");
     const logId = crypto.randomUUID();
     const startTime = new Date();
@@ -214,10 +217,19 @@ export async function GET() {
             WHERE id = '${logId}'
         `);
 
+        if (!silent) {
+            await sendAdminNotification(`🧪 *Sincronização IMA Concluída*\n\nStatus: Sucesso ✅\nCidades: ${cities.length}\nPraias: ${totalBeaches}\nLaudos: ${totalReports}`);
+        }
+
         return NextResponse.json(finalResponse);
 
     } catch (error: any) {
         console.error(">>> ERRO NO SYNC IMA <<<", error);
+
+        if (!silent) {
+            await sendAdminNotification(`❌ *ERRO NO SYNC IMA*\n\nErro: ${error.message}`);
+        }
+
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
