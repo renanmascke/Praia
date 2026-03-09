@@ -29,11 +29,12 @@ export async function GET() {
     }
 
     try {
-        const success = await sendAdminNotification("🚀 *Teste de Notificação*\n\nSe você recebeu isso, a integração com o Telegram na Vercel está funcionando!");
+        const response = await sendAdminNotification("🚀 *Teste de Notificação*\n\nSe você recebeu isso, a integração com o Telegram na Vercel está funcionando!");
 
         return NextResponse.json({
-            success,
-            message: success ? "Notificação enviada com sucesso!" : "Falha ao enviar notificação. Verifique os logs da Vercel.",
+            success: response.ok,
+            message: response.ok ? "Notificação enviada com sucesso!" : "Falha ao enviar notificação.",
+            telegramResponse: response,
             diagnostics: {
                 tokenPresent: token !== 'NÃO CONFIGURADO',
                 tokenStart: token !== 'NÃO CONFIGURADO' ? `${token.substring(0, 5)}...` : 'N/A',

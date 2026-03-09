@@ -29,26 +29,24 @@ export async function sendAdminNotification(message: string) {
             const errorText = await response.text();
             console.error(`TELEGRAM_ADMIN: Falha da API do Telegram (Status ${response.status}):`, errorText);
 
-            // Tentar novamente sem Markdown se o erro for de parsing
             if (errorText.includes("can't parse entities")) {
-                console.log("TELEGRAM_ADMIN: Erro de Markdown, tentando enviar em texto puro...");
                 const retryResponse = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         chat_id: ADMIN_CHAT_ID,
-                        text: message.replace(/[*_]/g, '') // Remove caracteres de markdown
+                        text: message.replace(/[*_]/g, '')
                     })
                 });
-                return retryResponse.ok;
+                return await retryResponse.json();
             }
-            return false;
+            return { ok: false, error: errorText };
         } else {
             console.log("TELEGRAM_ADMIN: Notificação enviada com sucesso.");
-            return true;
+            return await response.json();
         }
     } catch (error: any) {
         console.error("TELEGRAM_ADMIN: Erro ao conectar com API do Telegram:", error.message || error);
-        return false;
+        return { ok: false, error: error.message };
     }
 }
