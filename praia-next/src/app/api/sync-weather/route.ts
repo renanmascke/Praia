@@ -34,15 +34,13 @@ async function checkAndIncrementQuota(provider: string, limit: number) {
     return true;
 }
 
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const silent = searchParams.get('silent') === 'true';
-    const logId = crypto.randomUUID();
-    const startTime = new Date();
-
+export async function runWeatherSync(silent: boolean = false) {
     if (!WEATHER_API_KEY) {
         throw new Error("WEATHER_API_KEY não configurada no .env");
     }
+
+    const logId = crypto.randomUUID();
+    const startTime = new Date();
 
     // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`
@@ -135,10 +133,10 @@ export async function GET(request: Request) {
             await sendAdminNotification(`🌦️ *Sincronização de Clima Concluída*\n\nStatus: Sucesso ✅\nChamadas: ${weatherCalls}`);
         }
 
-        return NextResponse.json({ success: true, weather: weatherCalls });
+        return { success: true, weather: weatherCalls };
 
     } catch (error: any) {
-        console.error(">>> ERRO NO SYNC WEATHER <<<", error);
+        console.error(">>> ERRO NO SYNC WEATHER CORE <<<", error);
 
         if (!silent) {
             await sendAdminNotification(`❌ *ERRO NO SYNC CLIMA*\n\nErro: ${error.message}`);
@@ -147,6 +145,13 @@ export async function GET(request: Request) {
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return { success: false, error: error.message };
     }
+}
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const silent = searchParams.get('silent') === 'true';
+    const result = await runWeatherSync(silent);
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
 }

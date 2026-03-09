@@ -7,10 +7,8 @@ import { sendAdminNotification } from '@/lib/telegram-admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const silent = searchParams.get('silent') === 'true';
-    console.log(">>> RECALCULO DE RANKING MANUAL INICIADO <<<");
+export async function runRankingSync(silent: boolean = false) {
+    console.log(">>> RECALCULO DE RANKING CORE INICIADO <<<");
     const logId = crypto.randomUUID();
 
     // Criar Log de Início
@@ -33,9 +31,9 @@ export async function GET(request: Request) {
             await sendAdminNotification(`🏆 *Ranking Recalculado*\n\nStatus: Sucesso ✅`);
         }
 
-        return NextResponse.json({ success: true, message: 'Ranking recalculado com sucesso!' });
+        return { success: true, message: 'Ranking recalculado com sucesso!' };
     } catch (error: any) {
-        console.error('Erro no recalculo manual do ranking:', error);
+        console.error('Erro no recalculo core do ranking:', error);
 
         if (!silent) {
             await sendAdminNotification(`❌ *ERRO NO RECALCULO DE RANKING*\n\nErro: ${error.message}`);
@@ -45,6 +43,13 @@ export async function GET(request: Request) {
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
 
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return { success: false, error: error.message };
     }
+}
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const silent = searchParams.get('silent') === 'true';
+    const result = await runRankingSync(silent);
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
 }

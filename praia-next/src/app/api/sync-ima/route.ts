@@ -6,10 +6,8 @@ import { sendAdminNotification } from '@/lib/telegram-admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const silent = searchParams.get('silent') === 'true';
-    console.log(">>> SYNC IMA INICIADO (MULTI-CIDADE) <<<");
+export async function runImaSync(silent: boolean = false) {
+    console.log(">>> SYNC IMA INICIADO (CORE) <<<");
     const logId = crypto.randomUUID();
     const startTime = new Date();
 
@@ -35,7 +33,7 @@ export async function GET(request: Request) {
         for (const city of cities) {
             console.log(`>>> Sincronizando cidade: ${city.name} (IMA ID: ${city.imaId})`);
 
-            // 1. Pré-Injetar as Praias do Whitelist (Atualmente mapeado para Floripa)
+            // 1. Pré-Injetar as Praias do Whitelist
             if (city.name === 'Florianópolis') {
                 for (const bw of beachWhitelist) {
                     await prisma.beach.upsert({
@@ -56,12 +54,6 @@ export async function GET(request: Request) {
                     });
                 }
             }
-
-            // ... fetching ...
-
-            // Inside the parsing loop, only use the whitelist if it's the right city or implement a generic way
-            // For now, let's allow the find to happen but it only matches if keys match IMA labels
-            // which are specific to these beaches.
 
             // 2. Buscar HTML do Histórico do IMA para a cidade
             const targetUrl = 'https://balneabilidade.ima.sc.gov.br/relatorio/historico';
@@ -221,10 +213,10 @@ export async function GET(request: Request) {
             await sendAdminNotification(`🧪 *Sincronização IMA Concluída*\n\nStatus: Sucesso ✅\nCidades: ${cities.length}\nPraias: ${totalBeaches}\nLaudos: ${totalReports}`);
         }
 
-        return NextResponse.json(finalResponse);
+        return finalResponse;
 
     } catch (error: any) {
-        console.error(">>> ERRO NO SYNC IMA <<<", error);
+        console.error(">>> ERRO NO SYNC IMA CORE <<<", error);
 
         if (!silent) {
             await sendAdminNotification(`❌ *ERRO NO SYNC IMA*\n\nErro: ${error.message}`);
@@ -233,6 +225,13 @@ export async function GET(request: Request) {
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return { success: false, error: error.message };
     }
+}
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const silent = searchParams.get('silent') === 'true';
+    const result = await runImaSync(silent);
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
 }

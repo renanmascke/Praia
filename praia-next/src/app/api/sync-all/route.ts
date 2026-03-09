@@ -36,27 +36,27 @@ export async function GET(request: Request) {
     } as any;
 
     try {
-        console.log(">>> INICIANDO SINCRONIZAÇÃO COMPLETA <<<");
+        console.log(">>> INICIANDO SINCRONIZAÇÃO COMPLETA (MODO DIRETO) <<<");
 
         // 1. IMA
         console.log("1/4: Sincronizando IMA...");
-        const resIma = await fetch(`${baseUrl}/api/sync-ima?silent=true`);
-        results.ima = await resIma.json();
+        const { runImaSync } = await import('../sync-ima/route');
+        results.ima = await runImaSync(true);
 
         // 2. Weather
         console.log("2/4: Sincronizando Weather...");
-        const resWeather = await fetch(`${baseUrl}/api/sync-weather?silent=true`);
-        results.weather = await resWeather.json();
+        const { runWeatherSync } = await import('../sync-weather/route');
+        results.weather = await runWeatherSync(true);
 
         // 3. Marine
         console.log("3/4: Sincronizando Marine...");
-        const resMarine = await fetch(`${baseUrl}/api/sync-marine?silent=true`);
-        results.marine = await resMarine.json();
+        const { runMarineSync } = await import('../sync-marine/route');
+        results.marine = await runMarineSync(true);
 
         // 4. Ranking
         console.log("4/4: Recalculando Ranking...");
-        const resRanking = await fetch(`${baseUrl}/api/sync-ranking?silent=true`);
-        results.ranking = await resRanking.json();
+        const { runRankingSync } = await import('../sync-ranking/route');
+        results.ranking = await runRankingSync(true);
 
         console.log(">>> SINCRONIZAÇÃO COMPLETA FINALIZADA <<<");
 

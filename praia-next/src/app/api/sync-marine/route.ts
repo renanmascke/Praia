@@ -23,15 +23,13 @@ async function checkAndIncrementQuota(provider: string, limit: number) {
     return true;
 }
 
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const silent = searchParams.get('silent') === 'true';
+export async function runMarineSync(silent: boolean = false) {
+    if (!STORMGLASS_API_KEY) {
+        throw new Error("STORMGLASS_API_KEY não configurada no .env");
+    }
+
     const logId = crypto.randomUUID();
     const startTime = new Date();
-
-    if (!STORMGLASS_API_KEY) {
-        return NextResponse.json({ success: false, error: "STORMGLASS_API_KEY não configurada" }, { status: 500 });
-    }
 
     await (prisma as any).$executeRawUnsafe(`
         INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)
@@ -56,7 +54,6 @@ export async function GET(request: Request) {
                     const marineData = await sgRes.json();
                     sgCalls++;
 
-                    // Mesclar com os dados de WeatherForecast existentes (próximos 3 dias)
                     for (let i = 0; i < 3; i++) {
                         const targetDate = new Date();
                         targetDate.setUTCDate(targetDate.getUTCDate() + i);
@@ -109,10 +106,10 @@ export async function GET(request: Request) {
             await sendAdminNotification(`🌊 *Sincronização de Mar Concluída*\n\nStatus: ${finalStatus} ${sgLimitReached ? '⚠️' : '✅'}\nChamadas: ${sgCalls}`);
         }
 
-        return NextResponse.json({ success: true, marine: sgCalls, limitReached: sgLimitReached });
+        return { success: true, marine: sgCalls, limitReached: sgLimitReached };
 
     } catch (error: any) {
-        console.error(">>> ERRO NO SYNC MARINE <<<", error);
+        console.error(">>> ERRO NO SYNC MARINE CORE <<<", error);
 
         if (!silent) {
             await sendAdminNotification(`❌ *ERRO NO SYNC MAR*\n\nErro: ${error.message}`);
@@ -121,6 +118,13 @@ export async function GET(request: Request) {
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return { success: false, error: error.message };
     }
+}
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const silent = searchParams.get('silent') === 'true';
+    const result = await runMarineSync(silent);
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
 }
