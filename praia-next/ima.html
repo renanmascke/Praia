@@ -1,0 +1,230 @@
+
+<div style="border:1px solid #990000;padding-left:20px;margin:0 0 10px 0;">
+
+<h4>A PHP Error was encountered</h4>
+
+<p>Severity: Warning</p>
+<p>Message:  count(): Parameter must be an array or an object that implements Countable</p>
+<p>Filename: controllers/Relatorio.php</p>
+<p>Line Number: 161</p>
+
+
+	<p>Backtrace:</p>
+	
+		
+	
+		
+	
+		
+			<p style="margin-left:10px">
+			File: /var/www/html/balneabilidade_publico/application/controllers/Relatorio.php<br />
+			Line: 161<br />
+			Function: _error_handler			</p>
+
+		
+	
+		
+	
+		
+			<p style="margin-left:10px">
+			File: /var/www/html/balneabilidade_publico/index.php<br />
+			Line: 315<br />
+			Function: require_once			</p>
+
+		
+	
+
+</div><html>
+    <head>
+        <title>BALNEABILIDADE</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="icon" type="image/png" sizes="32x32" href="https://balneabilidade.ima.sc.gov.br/assets/img/favicon.ico">
+        <link href="https://balneabilidade.ima.sc.gov.br/assets/css/bootstrap.min.css" rel="stylesheet">
+        <script src="https://balneabilidade.ima.sc.gov.br/assets/js/jquery-3.3.1.min.js"></script>
+        <style>
+            hr{
+                border-color:#aaa;
+                box-sizing:border-box;
+                width:100%;  
+            }
+            body{
+                font-size: 12px;
+            }
+            .table-print td{
+                padding: 2px 2px 2px 10px;
+                font-size: 14px;
+                vertical-align: middle;
+                border: 2px solid #000;
+            }
+            .table-print th{
+                font-size: 18px;
+                border: 2px solid #000;
+                vertical-align: middle;
+                font-weight: bold;
+                text-align: center;
+            }
+            .local{
+                width: 50%;
+            }
+
+            .data{    
+                width: 10%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+            .hora{    
+                width: 10%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+            .vento{    
+                width: 10%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+
+            .mare{    
+                width: 10%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+            .agua{    
+                width: 10%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+            .ar{    
+                width: 10%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+            .chuva{    
+                width: 10%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+
+            .ecoli{    
+                width: 20%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+            .condicao{    
+                width: 20%; 
+                text-align: center;
+                vertical-align: middle;
+            }
+
+
+        </style>
+    </head>
+    <body>
+        <div style="width: 1200px;">
+            <div class="row" style="border: 2px solid #000;margin-left: 10px;height: 150px">
+                <div class="col-md-3">
+                    <img src="https://balneabilidade.ima.sc.gov.br//assets/img/IMA_LOGO.png" style="width: 210px"/>
+                </div>
+                <div class="col-md-9" >
+                    <table class="table">
+                        <tr>
+                            <td colspan="2" style="text-align: center;"><b>GOVERNO DO ESTADO DE SANTA </b><br><br>INSTITUTO DO MEIO AMBIENTE DE SANTA CATARINA</td>
+                        </tr> 
+                        <tr>
+                            <td colspan="2" style="text-align: center;"><b>BALNEABILIDADE DO LITORAL CATARINENSE</b></td>
+                        </tr> 
+                    </table>
+                </div>
+            </div>
+            <br>
+
+            <div class="row" style="margin-left: 10px;border: 1px solid #000">
+                <div class="col-md-12">
+                    <div class="row">
+                        <div class="col-md-2" style="text-align: center;">
+
+                        </div>
+                        <div class="col-md-10" style="text-align: center;">
+                            <b>CLASSIFICAÇÃO DO PONTO CONFORME RESOLUÇÃO CONAMA nº 274/2000:</b>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2" style="text-align: center;">
+                            <label style="margin-left: 5px; font-size: 14px;"><b>Próprio:</b></label>
+                        </div>
+                        <div class="col-md-10" style="text-align: left;">
+                            Quando em 80% ou mais de um conjunto de amostras coletadas nas últimas 5 semanas anteriores, no mesmo local
+                            houver no máximo 800 <i>Escherichia coli</i> por 100 mililitros. 
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2" style="text-align: center;">
+                            <label style="margin-left: 5px; font-size: 14px;"><b>Impróprio:</b></label>
+                        </div>
+                        <div class="col-md-10" style="text-align: left;">
+                            Quando em mais de 20% de um conjunto de amostras coletadas nas últimas 5 semanas anteriores, no mesmo local,
+                            for superior a 800 <i>Escherichia coli</i> por 100 mililitros ou quando, na última coleta, o resultado for superior a 2000
+                            <i>Escherichia coli</i> por 100 mililitros. 
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <br>
+
+            
+<div style="border:1px solid #990000;padding-left:20px;margin:0 0 10px 0;">
+
+<h4>A PHP Error was encountered</h4>
+
+<p>Severity: Warning</p>
+<p>Message:  Invalid argument supplied for foreach()</p>
+<p>Filename: relatorios/historico.php</p>
+<p>Line Number: 148</p>
+
+
+	<p>Backtrace:</p>
+	
+		
+	
+		
+	
+		
+			<p style="margin-left:10px">
+			File: /var/www/html/balneabilidade_publico/application/views/relatorios/historico.php<br />
+			Line: 148<br />
+			Function: _error_handler			</p>
+
+		
+	
+		
+	
+		
+	
+		
+			<p style="margin-left:10px">
+			File: /var/www/html/balneabilidade_publico/application/controllers/Relatorio.php<br />
+			Line: 207<br />
+			Function: view			</p>
+
+		
+	
+		
+	
+		
+			<p style="margin-left:10px">
+			File: /var/www/html/balneabilidade_publico/index.php<br />
+			Line: 315<br />
+			Function: require_once			</p>
+
+		
+	
+
+</div>
+        </div>
+    </body>
+</html>
+
+
+  
+

@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  name                String
+  password            String   // Hashed password
+  forcePasswordChange Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model City {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  imaId     Int?     // ID do município no sistema do IMA (ex: 2 para Floripa)
+  beaches   Beach[]
+  anchors   ForecastAnchor[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Beach {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  cityId       String?  // Município normalizado
+  city         City?    @relation(fields: [cityId], references: [id])
+  region       String
+  idealWind    String
+  offlineDesc  String   @db.Text
+  anchorId     String?  // FK para o ponto de previsão
+  anchor       ForecastAnchor? @relation(fields: [anchorId], references: [id])
+  reports      Report[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ForecastAnchor {
+  id        String   @id @default(uuid())
+  name      String   // Ex: "Floripa Norte", "Leste da Ilha"
+  latitude  Float
+  longitude Float
+  cityId    String
+  city      City      @relation(fields: [cityId], references: [id])
+  beaches   Beach[]
+  forecasts WeatherForecast[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, cityId])
+}
+
+model Report {
+  id             String   @id @default(uuid())
+  beachId        String
+  date           DateTime @db.Date
+  pts            Int
+  pPts           Int
+  improprios     Int
+  indeterminados Int
+  points         Json?
+  status         String
+  beach          Beach    @relation(fields: [beachId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@unique([beachId, date])
+}
+
+model Partner {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @db.Text
+  url         String?
+  imageUrl    String?
+  region      String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WeatherForecast {
+  id          String   @id @default(uuid())
+  anchorId    String   // Vínculo com o ponto geográfico
+  date        DateTime @db.Date
+  condition   String
+  tempMax     Float
+  tempMin     Float
+  rainChance  Int
+  rainAmount  Float
+  windDir     String
+  windSpeed   Float
+  hourlyData  Json?
+  anchor      ForecastAnchor @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([anchorId, date])
+}
+
+model SyncLog {
+  id        String   @id @default(uuid())
+  type      String   // 'IMA' or 'WEATHER'
+  startTime DateTime
+  endTime   DateTime?
+  status    String   // 'SUCCESS', 'FAILED', 'RUNNING'
+  message   String?  @db.Text
+  response  Json?
+  createdAt DateTime @default(now())
+}
+
+model WindDirection {
+  id        String   @id @default(uuid())
+  code      String   @unique // The abbreviation from API (e.g., 'N', 'NE')
+  name      String   // Full Portuguese description (e.g., 'Nor-nordeste')
+  icon      String   // Compass arrow emoji (e.g., '↙')
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ApiQuota {
+  id        String   @id @default(uuid())
+  provider  String   // 'WEATHERAPI' or 'STORMGLASS'
+  date      DateTime @db.Date
+  count     Int      @default(0)
+  maxLimit  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, date])
+}

@@ -1,0 +1,185 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floripa: Boletim de Praia Inteligente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="antialiased min-h-screen pb-12 text-sm">
+
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+        <!-- Cabeçalho -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight uppercase italic leading-none">Boletim de
+                Praia: Floripa 🏖️</h1>
+            <p class="mt-2 text-slate-400 font-medium text-[10px] uppercase tracking-[0.2em]">Previsão dos próximos 7
+                dias</p>
+        </header>
+
+        <!-- Seletor de Datas -->
+        <section class="mb-8 overflow-x-auto no-scrollbar">
+            <div class="flex justify-start md:justify-center min-w-max pb-2">
+                <div id="date-selector"
+                    class="inline-flex bg-slate-200/70 rounded-xl p-1 shadow-inner border border-slate-200 gap-1"></div>
+            </div>
+        </section>
+
+        <!-- Dashboard Modular -->
+        <div id="app-container"
+            class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mb-8 relative text-sm">
+
+            <!-- Bloco 1: Veredito -->
+            <div id="section-verdict" class="p-8 text-center border-b border-slate-100 transition-all duration-700">
+                <h2 class="text-[10px] font-bold tracking-[0.2em] uppercase mb-2 text-slate-400"
+                    id="current-date-label">--</h2>
+                <div class="flex items-center justify-center gap-2 mb-1 min-h-[40px]">
+                    <div id="verdict-text"
+                        class="text-2xl md:text-3xl font-black tracking-tighter leading-tight uppercase flex items-center gap-2 text-slate-800">
+                        ...</div>
+                </div>
+                <div id="verdict-desc-el"
+                    class="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-widest mt-1 min-h-[16px] max-w-2xl mx-auto leading-relaxed">
+                    --</div>
+
+                <div
+                    class="mt-6 bg-slate-50 rounded-2xl p-6 border border-slate-200 inline-block max-w-4xl mx-auto text-left w-full">
+                    <div
+                        class="flex items-center gap-2 mb-3 text-slate-800 font-bold uppercase text-[10px] tracking-widest">
+                        📘 Dica do Especialista</div>
+                    <div id="ai-insight-text"
+                        class="analysis-content text-slate-600 leading-relaxed text-sm md:text-base min-h-[5.5em]">
+                        Calculando roteiro seguro...</div>
+                </div>
+            </div>
+
+            <!-- Dados Técnicos -->
+            <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 border-b border-slate-100">
+                <div id="section-chart">
+                    <h3
+                        class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <span class="text-sky-500">📊</span> Tendência (°C / mm / km/h)
+                    </h3>
+                    <div id="chart-wrapper" class="chart-container">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="flex flex-col" id="section-winds">
+                    <h3
+                        class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <span class="text-sky-500">💨</span> Condições de Vento
+                    </h3>
+                    <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex-grow">
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+                                <span
+                                    class="block text-[9px] text-slate-400 uppercase font-bold mb-1 tracking-widest">Predominante</span>
+                                <span id="wind-dir-display" class="block text-sm font-bold text-slate-800">--</span>
+                            </div>
+                            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+                                <span
+                                    class="block text-[9px] text-slate-400 uppercase font-bold mb-1 tracking-widest">Velocidade
+                                    Média</span>
+                                <span id="wind-speed-display" class="block text-sm font-bold text-slate-800">--</span>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm" id="beach-abrigos-card">
+                            <h4
+                                class="font-bold text-slate-800 mb-3 text-[10px] uppercase tracking-wider flex justify-between items-center">
+                                <span>Principais Abrigos</span>
+                                <span id="sea-size-display"
+                                    class="text-[9px] bg-sky-50 text-sky-600 px-2 py-1 rounded border border-sky-100 font-bold italic text-right uppercase">Mar:
+                                    --</span>
+                            </h4>
+                            <div id="beach-list" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ranking -->
+            <div class="p-6 md:p-8 bg-white border-b border-slate-100" id="section-ranking">
+                <div class="flex items-center justify-between mb-8">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🏆</span>
+                        <h3 class="text-lg font-bold text-slate-800 uppercase tracking-tight text-sm">Ranking de
+                            Viabilidade</h3>
+                    </div>
+                    <button id="btn-expand-ranking"
+                        class="text-[9px] font-black uppercase tracking-widest text-sky-600 hover:text-sky-800 transition-colors bg-sky-50 px-3 py-1.5 rounded-lg border border-sky-100 shadow-sm">
+                        Ver ranking completo
+                    </button>
+                </div>
+
+                <div id="ranking-container" class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <div class="bg-emerald-50/40 rounded-2xl p-6 border border-emerald-100 relative" id="best-box">
+                        <h4
+                            class="text-emerald-700 font-black text-[10px] uppercase tracking-widest mb-6 flex items-center gap-2 relative z-10">
+                            <span
+                                class="bg-emerald-500 text-white w-3.5 h-3.5 flex items-center justify-center rounded-sm text-[7px]">✓</span>
+                            Melhores Escolhas
+                        </h4>
+                        <div id="ranking-best" class="space-y-4 relative z-10"></div>
+                    </div>
+
+                    <div class="bg-rose-50/40 rounded-2xl p-6 border border-rose-100 relative" id="worst-box">
+                        <h4
+                            class="text-rose-700 font-black text-[10px] uppercase tracking-widest mb-6 flex items-center gap-2 relative z-10">
+                            <span
+                                class="bg-rose-500 text-white w-3.5 h-3.5 flex items-center justify-center rounded-sm text-[7px]">✕</span>
+                            Melhor evitar
+                        </h4>
+                        <div id="ranking-worst" class="space-y-4 relative z-10"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Consultoria -->
+            <div class="p-8 bg-slate-50/40 border-t border-slate-100">
+                <div class="max-w-3xl mx-auto text-center md:text-left">
+                    <h3 class="text-slate-800 font-bold text-lg mb-1 text-sm uppercase tracking-wider">Consultoria de
+                        Praia</h3>
+                    <p class="text-slate-500 text-[11px] leading-relaxed mb-4">
+                        Esta inteligência artificial analisa em tempo real os dados de vento, balneabilidade oficial do
+                        IMA e janelas de chuva para responder dúvidas específicas. O melhor caso de uso é consultar
+                        horários precisos (ex: <strong>"Como estará o mar às 16h?"</strong>) ou perfis de passeio (ex:
+                        <strong>"Qual a melhor praia para crianças hoje?"</strong>).
+                    </p>
+                    <div class="flex flex-col gap-3">
+                        <div class="relative">
+                            <input id="ai-query" type="text" placeholder="Qual praia é melhor hoje às 15h?"
+                                class="w-full bg-white px-5 py-4 rounded-2xl border border-slate-300 focus:border-sky-500 outline-none shadow-sm pr-32 text-sm text-slate-800">
+                            <button id="btn-ask-ai"
+                                class="absolute right-2 top-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2 rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 uppercase tracking-widest">Consultar</button>
+                        </div>
+                        <div id="ai-response-container"
+                            class="hidden mt-4 p-5 bg-white border border-slate-200 rounded-xl shadow-sm text-left">
+                            <span
+                                class="text-[10px] font-black text-sky-600 uppercase tracking-widest block mb-3 border-b border-slate-100 pb-2 text-xs">Resposta
+                                da Consultoria</span>
+                            <div id="ai-response-text"
+                                class="analysis-content text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-slate-400 text-[9px] font-bold uppercase tracking-[0.15em] py-4">
+            Fontes: Balneabilidade Oficial do IMA (Em Tempo Real) e Condições Meteorológicas via WeatherAPI
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
