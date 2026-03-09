@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { formatRegionLocale } from '@/lib/formatters';
 
 interface RankingItem {
     id: string;
@@ -71,7 +72,7 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
                     >
                         <option value="">Todas as Regiões</option>
                         {initialRegions.map(region => (
-                            <option key={region} value={region}>{region}</option>
+                            <option key={region} value={region}>{formatRegionLocale(region)}</option>
                         ))}
                     </select>
                 </div>
@@ -102,8 +103,8 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
                                     {/* Posição e Nome */}
                                     <div className="flex items-center gap-4 min-w-[250px]">
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg ${item.position === 1 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' :
-                                                item.position === 2 ? 'bg-slate-300 text-slate-700' :
-                                                    item.position === 3 ? 'bg-amber-600/20 text-amber-700' : 'bg-slate-200 text-slate-500'
+                                            item.position === 2 ? 'bg-slate-300 text-slate-700' :
+                                                item.position === 3 ? 'bg-amber-600/20 text-amber-700' : 'bg-slate-200 text-slate-500'
                                             }`}>
                                             {item.position}
                                         </div>
@@ -111,7 +112,7 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
                                             <h3 className="font-bold text-slate-800 tracking-tight group-hover:text-orange-600 transition-colors uppercase text-sm">
                                                 {item.beach.name}
                                             </h3>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.beach.region}</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{formatRegionLocale(item.beach.region)}</p>
                                         </div>
                                     </div>
 
@@ -124,7 +125,7 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
                                         <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                                             <div
                                                 className={`h-full transition-all duration-1000 rounded-full ${item.score > 80 ? 'bg-emerald-500' :
-                                                        item.score > 50 ? 'bg-orange-400' : 'bg-rose-500'
+                                                    item.score > 50 ? 'bg-orange-400' : 'bg-rose-500'
                                                     }`}
                                                 style={{ width: `${item.score}%` }}
                                             />
@@ -136,8 +137,8 @@ export default function RankingClient({ initialCities, initialRegions }: { initi
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status IMA</p>
                                             <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap ${item.status.includes('Indeterminado') ? 'bg-amber-100 text-amber-600' :
-                                                    item.status === 'Própria' ? 'bg-emerald-100 text-emerald-600' :
-                                                        item.status === 'Mista' ? 'bg-sky-100 text-sky-600' : 'bg-rose-100 text-rose-600'
+                                                item.status === 'Própria' ? 'bg-emerald-100 text-emerald-600' :
+                                                    item.status === 'Mista' ? 'bg-sky-100 text-sky-600' : 'bg-rose-100 text-rose-600'
                                                 }`}>
                                                 {item.status}
                                             </span>

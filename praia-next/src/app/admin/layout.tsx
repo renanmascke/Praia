@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
                 <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-2">
                     <Link href="/admin" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
-                        📊 Dashboard
+                        📊 Painel Geral
                     </Link>
                     <Link href="/admin/praias" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
                         🏖️ Gestão de Praias
@@ -36,7 +36,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         🔄 Monitoramento
                     </Link>
                     <Link href="/admin/parceiros" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
-                        🤝 Parceiros & Ads
+                        🤝 Parceiros & Anúncios
                     </Link>
                     <Link href="/admin/usuarios" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
                         🛡️ Administradores

@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import SearchFilter from '../components/SearchFilter';
 import Pagination from '../components/Pagination';
 import { Prisma } from '@prisma/client';
+import { formatRegionLocale } from '@/lib/formatters';
 
 export default async function AdminPartners({
     searchParams,
@@ -84,7 +85,7 @@ export default async function AdminPartners({
                                         </td>
                                         <td className="p-4 px-6">
                                             <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border border-slate-200">
-                                                {partner.region}
+                                                {formatRegionLocale(partner.region || '')}
                                             </span>
                                         </td>
                                         <td className="p-4 px-6">

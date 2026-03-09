@@ -138,13 +138,13 @@ export default function BeachModal({ isOpen, onClose, beach }: BeachModalProps) 
                                 className="w-full bg-slate-50 border border-slate-200 p-3 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all appearance-none"
                             >
                                 <option value="">Selecionar...</option>
-                                <option value="North">Norte da Ilha</option>
-                                <option value="North/Exposed">Norte (Exposta)</option>
-                                <option value="East">Leste da Ilha</option>
-                                <option value="East/Exposed">Leste (Exposta)</option>
-                                <option value="South">Sul da Ilha</option>
-                                <option value="South/Exposed">Sul (Exposta)</option>
-                                <option value="Mainland">Continente</option>
+                                <option value="NORTH">Norte da Ilha</option>
+                                <option value="NORTH/EXPOSED">Norte (Mar Aberto)</option>
+                                <option value="EAST">Leste da Ilha</option>
+                                <option value="EAST/EXPOSED">Leste (Mar Aberto)</option>
+                                <option value="SOUTH">Sul da Ilha</option>
+                                <option value="SOUTH/EXPOSED">Sul (Mar Aberto)</option>
+                                <option value="MAINLAND">Continente</option>
                             </select>
                         </div>
 

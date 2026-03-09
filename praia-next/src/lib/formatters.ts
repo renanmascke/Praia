@@ -9,22 +9,19 @@ export function formatRegionLocale(regionCode: string): string {
         'SOUTH': 'Sul da Ilha',
         'EAST': 'Leste da Ilha',
         'WEST': 'Oeste da Ilha',
-        'CENTER': 'Centro / Baía',
-        'CENTRO': 'Centro / Baía',
+        'CENTER': 'Centro',
+        'CENTRO': 'Centro',
         'NORTE': 'Norte da Ilha',
         'SUL': 'Sul da Ilha',
         'LESTE': 'Leste da Ilha',
         'OESTE': 'Oeste da Ilha',
     };
 
-    // Map suffixes (like /EXPOSED, /SHELTERED)
+    // Map suffixes
     const suffixMap: Record<string, string> = {
-        'EXPOSED': 'Exposta',
-        'SHELTERED': 'Protegida'
+        'EXPOSED': 'Mar Aberto',
+        'SHELTERED': 'Mar Calmo/Protegido'
     };
-
-    let result = r;
-    let foundBase = false;
 
     // Check for combinations like "NORTH/EXPOSED"
     if (r.includes('/')) {
@@ -38,16 +35,8 @@ export function formatRegionLocale(regionCode: string): string {
         return `${translatedBase} (${translatedSuffix})`;
     }
 
-    // Tenta encontrar um match direto ou parcial na base
-    for (const key of Object.keys(baseMap)) {
-        if (r === key || r.includes(key)) {
-            result = baseMap[key];
-            foundBase = true;
-            break;
-        }
-    }
-
-    return result;
+    // Direct match or partial match
+    return baseMap[r] || r;
 }
 
 export function formatWindLocale(windCode: string): string {
