@@ -32,9 +32,8 @@ export async function GET() {
         for (const city of cities) {
             console.log(`>>> Sincronizando cidade: ${city.name} (IMA ID: ${city.imaId})`);
 
-            // 1. Pré-Injetar as Praias do Whitelist para esta cidade (se aplicável)
-            // Sincroniza praias do whitelist para a cidade atual
-            if (city.imaId) {
+            // 1. Pré-Injetar as Praias do Whitelist (Atualmente mapeado para Floripa)
+            if (city.name === 'Florianópolis') {
                 for (const bw of beachWhitelist) {
                     await prisma.beach.upsert({
                         where: { name: bw.target },
@@ -54,6 +53,12 @@ export async function GET() {
                     });
                 }
             }
+
+            // ... fetching ...
+
+            // Inside the parsing loop, only use the whitelist if it's the right city or implement a generic way
+            // For now, let's allow the find to happen but it only matches if keys match IMA labels
+            // which are specific to these beaches.
 
             // 2. Buscar HTML do Histórico do IMA para a cidade
             const targetUrl = 'https://balneabilidade.ima.sc.gov.br/relatorio/historico';
