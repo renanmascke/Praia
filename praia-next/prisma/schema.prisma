@@ -53,6 +53,7 @@ model BeachRanking {
   totalPoints    Int      @default(0) // Total de pontos coletados
   proprioCount   Int      @default(0) // Pontos próprios
   improprioCount Int      @default(0) // Pontos impróprios
+  aiCommentary   String?  @db.Text    // Comentário gerado pelo Gemini
   beach          Beach    @relation(fields: [beachId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
 

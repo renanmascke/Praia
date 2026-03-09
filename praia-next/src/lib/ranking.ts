@@ -8,6 +8,7 @@ interface RankingScore {
     totalPoints: number;
     proprioCount: number;
     improprioCount: number;
+    aiCommentary?: string | null;
 }
 
 /**
@@ -74,12 +75,14 @@ export async function calculateBeachScore(beach: any, forecast: any, report: any
 export async function generateDailyRankings(cityId: string, date: Date) {
     console.log(`>>> GERANDO RANKING: Cidade ${cityId}, Data ${date.toISOString().split('T')[0]}`);
 
+    const city = await prisma.city.findUnique({ where: { id: cityId } });
     const beaches = await prisma.beach.findMany({
         where: { cityId },
         include: { anchor: true }
     });
 
     const results: RankingScore[] = [];
+    const beachesDataForAi: any[] = [];
 
     for (const beach of beaches) {
         // Buscar previsão para o anchor desta praia
@@ -87,40 +90,69 @@ export async function generateDailyRankings(cityId: string, date: Date) {
             where: { anchorId_date: { anchorId: beach.anchorId, date } }
         }) : null;
 
-        // Buscar relatório IMA mais recente (ou da data se disponível)
-        // Por simplificação, pegamos o último relatório inserido para esta praia
+        // Buscar relatório IMA mais recente
         const report = await prisma.report.findFirst({
             where: { beachId: beach.id },
             orderBy: { date: 'desc' }
         });
 
-        const score = await calculateBeachScore(beach, forecast, report);
+        // Coletar dados para a IA
+        beachesDataForAi.push({
+            beachId: beach.id,
+            name: beach.name,
+            idealWind: beach.idealWind,
+            forecast: forecast ? {
+                condition: forecast.condition,
+                windDir: forecast.windDir,
+                waveHeight: (forecast.hourlyData as any[])?.[12]?.waveHeight || 0 // Usar meio-dia como ref
+            } : null,
+            report: report ? {
+                status: report.status,
+                lastUpdate: report.date
+            } : null
+        });
 
-        // Ajuste do status para exibição quando indeterminado
-        let status = report?.status || 'Indeterminado';
-
+        // Cálculo matemático inicial (Fica como Fallback)
+        const mathScore = await calculateBeachScore(beach, forecast, report);
         results.push({
             beachId: beach.id,
-            score,
-            status,
+            score: mathScore,
+            status: report?.status || 'Indeterminado',
             totalPoints: report?.pts || 0,
             proprioCount: report?.pPts || 0,
-            improprioCount: report?.improprios || 0
+            improprioCount: report?.improprios || 0,
+            aiCommentary: null
         });
     }
 
-    // Ordenação: 
-    // 1. Praias com Balneabilidade 'Indeterminado' ou 'Própria'/'Mista' vêm primeiro (pelo score)
-    // 2. Praias 100% Impróprias vêm por último
+    // Tentar Refinar o Ranking com Gemini IA
+    if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        try {
+            console.log(`>>> Solicitando Ranking via IA para ${city?.name}...`);
+            const { generateCityRanking } = await import('./gemini');
+            const aiResults = await generateCityRanking(city?.name || "Santa Catarina", beachesDataForAi);
+
+            for (const ai of aiResults) {
+                const index = results.findIndex(r => r.beachId === ai.beachId);
+                if (index !== -1) {
+                    results[index].score = ai.score;
+                    results[index].aiCommentary = ai.commentary;
+                }
+            }
+            console.log(`>>> Ranking via IA processado com sucesso.`);
+        } catch (error) {
+            console.error(">>> FALHA NO RANKING IA, USANDO CÁLCULO MATEMÁTICO <<<", error);
+        }
+    }
+
+    // Ordenação final
     const sorted = results.sort((a, b) => {
-        // Penalização máxima se 100% imprópria (pts > 0 e pPts == 0)
         const aIsBad = a.totalPoints > 0 && a.proprioCount === 0;
         const bIsBad = b.totalPoints > 0 && b.proprioCount === 0;
 
         if (aIsBad && !bIsBad) return 1;
         if (!aIsBad && bIsBad) return -1;
-
-        return b.score - a.score; // Maior score primeiro
+        return b.score - a.score;
     });
 
     // Salvar no banco
@@ -134,7 +166,8 @@ export async function generateDailyRankings(cityId: string, date: Date) {
                 status: item.status,
                 totalPoints: item.totalPoints,
                 proprioCount: item.proprioCount,
-                improprioCount: item.improprioCount
+                improprioCount: item.improprioCount,
+                aiCommentary: item.aiCommentary
             },
             create: {
                 beachId: item.beachId,
@@ -144,7 +177,8 @@ export async function generateDailyRankings(cityId: string, date: Date) {
                 status: item.status,
                 totalPoints: item.totalPoints,
                 proprioCount: item.proprioCount,
-                improprioCount: item.improprioCount
+                improprioCount: item.improprioCount,
+                aiCommentary: item.aiCommentary
             }
         });
     }

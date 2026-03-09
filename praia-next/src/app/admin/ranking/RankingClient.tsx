@@ -12,6 +12,7 @@ interface RankingItem {
     totalPoints: number;
     proprioCount: number;
     improprioCount: number;
+    aiCommentary?: string | null;
     beach: {
         name: string;
         region: string;
@@ -117,9 +118,14 @@ export default function RankingClient({ initialCities, initialAnchors }: { initi
                                     </div>
 
                                     {/* Barra de Score */}
-                                    <div className="flex-1 space-y-1.5">
+                                    <div className="flex-1 space-y-1.5 ">
                                         <div className="flex justify-between items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Indicação</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Indicação</span>
+                                                {item.aiCommentary && (
+                                                    <span className="bg-blue-600 text-[8px] text-white px-1 rounded-sm font-black tracking-widest uppercase">Análise IA</span>
+                                                )}
+                                            </div>
                                             <span className="text-sm font-black text-slate-800">{Math.round(item.score)}%</span>
                                         </div>
                                         <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
@@ -130,6 +136,13 @@ export default function RankingClient({ initialCities, initialAnchors }: { initi
                                                 style={{ width: `${item.score}%` }}
                                             />
                                         </div>
+                                        {item.aiCommentary && (
+                                            <div className="mt-2 bg-blue-50/50 p-2.5 rounded-xl border border-blue-100/50">
+                                                <p className="text-[11px] text-blue-700/80 font-medium italic leading-relaxed">
+                                                    "{item.aiCommentary}"
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Status IMA e Pontos */}
