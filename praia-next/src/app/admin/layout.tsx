@@ -9,7 +9,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <aside className="w-full md:w-64 bg-slate-900 text-slate-300 md:h-screen shadow-xl p-6 flex flex-col shrink-0 overflow-y-auto">
                 <div className="mb-10 text-center md:text-left shrink-0">
                     <h2 className="text-white text-xl font-black italic uppercase tracking-tighter">
-                        Praia Admin <span className="text-sky-500">PRO</span>
+                        inDica Admin <span className="text-sky-500">PRO</span>
                     </h2>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
                         Gestão Floripa

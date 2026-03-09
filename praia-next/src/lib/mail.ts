@@ -19,7 +19,7 @@ export async function sendEmail(to: string, subject: string, html: string) {
 
     try {
         const info = await transporter.sendMail({
-            from: `"Que Praia Eu Vou?" <${SMTP_USER}>`,
+            from: `"inDica Praia" <${SMTP_USER}>`,
             to,
             subject,
             html,

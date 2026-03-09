@@ -46,7 +46,7 @@ export default function LoginPage() {
 
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-                        Praia Admin <span className="text-sky-500">PRO</span>
+                        inDica Admin <span className="text-sky-500">PRO</span>
                     </h1>
                     <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold mt-2">
                         Central de Controle e Governança

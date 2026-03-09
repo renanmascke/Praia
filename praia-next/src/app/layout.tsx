@@ -8,7 +8,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'Floripa: Boletim de Praia Inteligente',
+  title: 'inDica Praia: Floripa',
   description: 'Boletim em tempo real das melhores e mais seguras praias para banho em Florianópolis.',
 };
 

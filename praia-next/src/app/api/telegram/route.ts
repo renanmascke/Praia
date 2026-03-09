@@ -63,7 +63,7 @@ async function getCitiesKeyboard() {
 
 async function handleStart(chatId: number) {
     const keyboard = await getCitiesKeyboard();
-    await sendMessage(chatId, "👋 Bem-vindo ao **Que Praia Eu Vou?**\n\nEscolha uma cidade abaixo para começar:", keyboard);
+    await sendMessage(chatId, "👋 Bem-vindo ao **inDica Praia**\n\nEscolha uma cidade abaixo para começar:", keyboard);
     return NextResponse.json({ ok: true });
 }
 

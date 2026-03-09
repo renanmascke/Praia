@@ -20,9 +20,9 @@ export async function sendTempPasswordEmail(to: string, tempPassword: string) {
         });
 
         const info = await transporter.sendMail({
-            from: `"Praia Admin" <${process.env.SMTP_USER}>`,
+            from: `"inDica Admin" <${process.env.SMTP_USER}>`,
             to: to,
-            subject: "Acesso - Painel Admin Floripa",
+            subject: "inDica Admin - Acesso Floripa",
             html: `
         <div style="font-family: sans-serif; color: #333; p{line-height: 1.5;}">
           <h2 style="color: #0ea5e9;">Bem-vindo(a) ao Painel de Controle!</h2>

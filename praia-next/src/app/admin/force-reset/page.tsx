@@ -58,7 +58,7 @@ export default function ForceResetPage() {
                         Ação Requerida
                     </h1>
                     <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold mt-2">
-                        Por favor, troque sua senha temporária para acessar o Praia Admin PRO.
+                        Por favor, troque sua senha temporária para acessar o inDica Admin PRO.
                     </p>
                 </div>
 

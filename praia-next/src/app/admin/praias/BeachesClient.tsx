@@ -69,7 +69,7 @@ export default function BeachesClient({ beaches, windDirections, total, totalPag
                     <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-1 flex items-center gap-3">
                         <span className="text-rose-500">🏖️</span> Praias Monitoradas
                     </h1>
-                    <p className="text-slate-500 font-medium text-sm">Visualize as praias cadastradas no sistema do Praia Admin PRO.</p>
+                    <p className="text-slate-500 font-medium text-sm">Visualize as praias cadastradas no sistema do inDica Admin PRO.</p>
                 </div>
                 <div className="flex items-center gap-4 flex-1 md:flex-initial md:w-[400px]">
                     <SearchFilter placeholder="Buscar praia por nome..." className="relative w-full" />
