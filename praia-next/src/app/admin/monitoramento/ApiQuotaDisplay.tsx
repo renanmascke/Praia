@@ -85,7 +85,7 @@ export default function ApiQuotaDisplay({ initialQuotas, history, weatherMonthly
         }
 
         const data = days.map(date => {
-            const dateKey = format(date, 'yyyy-MM-dd');
+            const dateKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
             const dayRecord = history?.find(h => {
                 const hDate = new Date(h.date);
                 const hDateKey = `${hDate.getUTCFullYear()}-${String(hDate.getUTCMonth() + 1).padStart(2, '0')}-${String(hDate.getUTCDate()).padStart(2, '0')}`;
@@ -95,7 +95,7 @@ export default function ApiQuotaDisplay({ initialQuotas, history, weatherMonthly
         });
 
         return {
-            labels: days.map(d => format(d, 'dd/MM', { locale: ptBR })),
+            labels: days.map(d => `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`),
             datasets: [{
                 label: 'Requisições',
                 data: data,

@@ -19,6 +19,9 @@ export default async function AdminSyncLogsPage({
     const today = getBrazilToday();
     const firstDayOfMonth = getStartOfMonthBrazil();
 
+    const thirtyDaysAgo = getBrazilToday();
+    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+
     const [logs, total, quotas, history, monthlyQuota]: [any[], any, any, any, any] = await Promise.all([
         (prisma as any).$queryRawUnsafe(`
             SELECT * FROM SyncLog 
@@ -36,7 +39,7 @@ export default async function AdminSyncLogsPage({
         (prisma as any).apiQuota.findMany({
             where: {
                 date: {
-                    gte: new Date(new Date().setDate(new Date().getDate() - 30))
+                    gte: thirtyDaysAgo
                 }
             },
             orderBy: { date: 'asc' }
