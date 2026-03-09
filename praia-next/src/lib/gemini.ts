@@ -34,14 +34,15 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
                - Status "Mista" = Nota Média (máx 50). Significa que alguns pontos da praia estão próprios e outros impróprios. Destaque essa incerteza no comentário e recomende cautela.
                - Status "Próprio" ou "Indeterminado" = Nota Alta (base 70).
             2. Vento e Guarda-Sol (Conforto Térmico):
-               - Vento ideal para o microclima (direção abrigada) = +20 pontos. Indica mar calmo e sem vento "batendo" no guarda-sol.
-               - Ventos fortes (> 20km/h) ou direções desabrigadas diminuem a nota para lazer.
+               - IF Vento > 8km/h: Vento ideal para o microclima (direção abrigada) = +20 pontos.
+               - IF Vento <= 8km/h: É uma "Brisa Leve". Ignore a direção do vento e não diga que é desfavorável. Atribua +20 pontos de bônus automaticamente pelo conforto.
+               - Ventos fortes (> 20km/h) diminuem a nota para lazer consideravelmente.
             3. "Mar de Piscina" (Ondulação):
                - Mar "flat" ou calmo (waveHeight < 0.6m) = +15 pontos. É o ideal para banho.
                - Mar agitado (> 1.2m) = -20 pontos. Perigoso para banho e desconfortável para crianças. Não dê pontos por ser bom para surf.
-            4. Condição do Céu:
+            4. Condição do Céu e Chuva:
                - Sol/Céu Limpo = +10 pontos. 
-               - Nublado ou Chuva = Diminui a atratividade consideravelmente.
+               - Se houver qualquer indicação de "Chuva" ou "RainChance > 40%" em algum período, mencione isso obrigatoriamente e diminua a nota.
 
             Dados das Praias em ${cityName}:
             ${JSON.stringify(beachesData, null, 2)}
@@ -51,7 +52,7 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
                 {
                     "beachId": "id-string",
                     "score": número de 0 a 100,
-                    "commentary": "Justificativa curta (máx 140 caracteres) focada em banho e conforto (ex: 'Mar calmo e vento ideal para o guarda-sol')."
+                    "commentary": "Justificativa curta (máx 140 caracteres) focada em banho e conforto."
                 },
                 ...
             ]
@@ -81,23 +82,28 @@ export async function generateCityDailySummary(
 
     const prompt = `
         Você é um especialista local em lazer e praias em ${cityName}, Santa Catarina. 
-        Sua tarefa é escrever um resumo curto e amigável sobre como será o dia nas praias hoje.
+        Sua tarefa é escrever um resumo curto e amigável sobre como será o dia nas praias hoje, analisando os períodos (Manhã, Tarde e Noite).
         
+        DIRETRIZES DE INTELIGÊNCIA:
+        - VENTO: Se a velocidade for baixa (< 8-10 km/h), descreva como "brisa leve" e ignore direções desfavoráveis. O conforto para o guarda-sol é excelente com ventos baixos.
+        - CLIMA PROATIVO: Se houver mudança de tempo (ex: sol de manhã e chuva à tarde), você DEVE descrever essa transição claramente.
+        - CONSISTÊNCIA: Se os dados horários indicarem "Possibilidade de chuva" ou "RainChance > 40%", mencione isso mesmo que o ícone geral seja de sol. Não ignore riscos de chuva.
+        - MELHOR REGIÃO: Indique a região que estará mais confortável (abrigada do vento OU com mais sol) em cada período se houver mudança.
+
         REQUISITOS DO TEXTO:
         - Estilo: Amigo especialista local, amigável e informativo.
         - Tom: Sem gírias excessivas, sem saudações (não diga "Olá" ou "Bom dia").
         - Conteúdo:
-            1. Descreva como está o tempo de forma geral (sol, nuvens, temperatura).
-            2. Indique qual é a MELHOR região da cidade para ir (Norte, Sul, Leste, etc) com base no conforto do vento.
-            3. Mencione as top 3 praias do ranking.
-            4. Para a praia número #1, explique detalhadamente por que ela é a escolha ideal hoje (ex: mar calmo, protegida do vento, sol batendo cedo).
-        - Restrição: Não use dados muito técnicos (como "20km/h" ou "1.2m"). Use termos como "brisa leve", "mar de piscina", "bem abrigada".
-        - Tamanho: Máximo de 2 parágrafos curtos.
-        - Formatação: Markdown simples (pode usar negrito para nomes de praias).
+            1. Descreva a evolução do tempo ao longo do dia (Manhã -> Tarde -> Noite).
+            2. Indique a MELHOR região da cidade para lazer com base nos períodos.
+            3. Mencione as top 3 praias do ranking atual.
+            4. Para a praia número #1, explique por que ela é a escolha ideal hoje (especialmente focando em qual período ela estará melhor).
+        - Restrição: Máximo de 2 parágrafos. Não use dados técnicos numéricos no texto.
+        - Formatação: Markdown simples.
 
         DADOS:
         - Cidade: ${cityName}
-        - Clima: ${JSON.stringify(weatherData)}
+        - Clima por Períodos: ${JSON.stringify(weatherData)}
         - Melhores Praias (Ranking): ${JSON.stringify(rankingData.slice(0, 5))}
 
         Escreva apenas o texto do resumo.

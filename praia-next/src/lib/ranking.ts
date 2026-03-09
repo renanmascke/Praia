@@ -200,13 +200,33 @@ export async function generateDailyRankings(cityId: string, date: Date) {
             console.log(`>>> Gerando Resumo Diário da Cidade para ${city?.name}...`);
             const { generateCityDailySummary } = await import('./gemini');
 
-            // Preparar dados meteorológicos resumidos para a IA
-            const weatherSummary = forecasts.map(f => ({
-                condition: f.condition,
-                tempMax: f.tempMax,
-                tempMin: f.tempMin,
-                windDir: f.windDir
-            }));
+            // Preparar dados meteorológicos resumidos para a IA com granularidade por período
+            const weatherSummary = forecasts.map(f => {
+                const hours = (f.hourlyData as any[]) || [];
+
+                const getPeriodData = (start: number, end: number) => {
+                    const periodHours = hours.filter(h => h.time >= start && h.time <= end);
+                    if (periodHours.length === 0) return null;
+
+                    return {
+                        condition: periodHours[Math.floor(periodHours.length / 2)]?.condition || f.condition,
+                        avgWindSpeed: periodHours.reduce((acc, h) => acc + (h.windSpeed || 0), 0) / periodHours.length,
+                        windDir: periodHours[Math.floor(periodHours.length / 2)]?.windDir || f.windDir,
+                        rainChance: Math.max(...periodHours.map(h => h.rainChance || 0))
+                    };
+                };
+
+                return {
+                    anchorName: f.anchorId, // Para a IA entender regiões
+                    dailyMax: f.tempMax,
+                    dailyMin: f.tempMin,
+                    periods: {
+                        morning: getPeriodData(6, 11),
+                        afternoon: getPeriodData(12, 17),
+                        night: getPeriodData(18, 23)
+                    }
+                };
+            });
 
             // Preparar dados de ranking (nomes e scores)
             const topRankings = sorted.map(r => {
