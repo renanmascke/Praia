@@ -14,7 +14,8 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY não configurada no .env");
     }
 
-    const modelName = "gemini-1.5-flash";
+    // O usuário confirmou que usa e tem quota para 'gemini-2.5-flash'
+    const modelName = "gemini-2.5-flash";
 
     try {
         console.log(`>>> Tentando modelo Gemini: ${modelName} para ${cityName}...`);
@@ -61,9 +62,6 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
         return parsed;
     } catch (error: any) {
         console.error(`>>> Falha crítica com modelo ${modelName}:`, error.message);
-        if (error.message.includes("429") || error.message.includes("quota")) {
-            console.error(">>> ERRO DE QUOTA (429): Sua conta atingiu o limite ou este modelo não está ativo.");
-        }
         throw error;
     }
 }

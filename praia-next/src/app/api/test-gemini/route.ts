@@ -20,6 +20,7 @@ export async function GET() {
 
         // Diagnóstico: Testar variantes de modelos
         const modelVariants = [
+            "gemini-2.5-flash",
             "gemini-1.5-flash",
             "gemini-1.5-flash-latest",
             "gemini-1.5-flash-001",
