@@ -7,7 +7,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const cityId = searchParams.get('cityId');
     const dateStr = searchParams.get('date');
-    const region = searchParams.get('region');
     const anchorId = searchParams.get('anchorId');
 
     if (!cityId || !dateStr) {
@@ -22,7 +21,6 @@ export async function GET(request: Request) {
                 date,
                 beach: {
                     cityId,
-                    ...(region ? { region } : {}),
                     ...(anchorId ? { anchorId } : {})
                 }
             },

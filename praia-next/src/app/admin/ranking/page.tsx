@@ -2,20 +2,13 @@ import prisma from '@/lib/prisma';
 import RankingClient from './RankingClient';
 
 export default async function AdminRankingPage() {
-    // Buscar cidades, regiões e pontos de previsão para os filtros
-    const [cities, regions, anchors] = await Promise.all([
+    // Buscar cidades e pontos de previsão para os filtros
+    const [cities, anchors] = await Promise.all([
         prisma.city.findMany({ orderBy: { name: 'asc' } }),
-        prisma.beach.findMany({
-            select: { region: true },
-            distinct: ['region'],
-            orderBy: { region: 'asc' }
-        }),
         prisma.forecastAnchor.findMany({
             orderBy: { name: 'asc' }
         })
     ]);
-
-    const regionList = regions.map((r: any) => r.region).filter(Boolean);
 
     return (
         <div className="animate-in fade-in duration-500 flex-1 flex flex-col min-h-0">
@@ -30,7 +23,6 @@ export default async function AdminRankingPage() {
 
             <RankingClient
                 initialCities={cities}
-                initialRegions={regionList}
                 initialAnchors={anchors}
             />
         </div>
