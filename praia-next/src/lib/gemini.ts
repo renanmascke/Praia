@@ -68,3 +68,46 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
         throw error;
     }
 }
+
+export async function generateCityDailySummary(
+    cityName: string,
+    weatherData: any,
+    rankingData: any[]
+): Promise<string> {
+    if (!apiKey) return "";
+
+    const modelName = "gemini-2.5-flash";
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    const prompt = `
+        Você é um especialista local em lazer e praias em ${cityName}, Santa Catarina. 
+        Sua tarefa é escrever um resumo curto e amigável sobre como será o dia nas praias hoje.
+        
+        REQUISITOS DO TEXTO:
+        - Estilo: Amigo especialista local, amigável e informativo.
+        - Tom: Sem gírias excessivas, sem saudações (não diga "Olá" ou "Bom dia").
+        - Conteúdo:
+            1. Descreva como está o tempo de forma geral (sol, nuvens, temperatura).
+            2. Indique qual é a MELHOR região da cidade para ir (Norte, Sul, Leste, etc) com base no conforto do vento.
+            3. Mencione as top 3 praias do ranking.
+            4. Para a praia número #1, explique detalhadamente por que ela é a escolha ideal hoje (ex: mar calmo, protegida do vento, sol batendo cedo).
+        - Restrição: Não use dados muito técnicos (como "20km/h" ou "1.2m"). Use termos como "brisa leve", "mar de piscina", "bem abrigada".
+        - Tamanho: Máximo de 2 parágrafos curtos.
+        - Formatação: Markdown simples (pode usar negrito para nomes de praias).
+
+        DADOS:
+        - Cidade: ${cityName}
+        - Clima: ${JSON.stringify(weatherData)}
+        - Melhores Praias (Ranking): ${JSON.stringify(rankingData.slice(0, 5))}
+
+        Escreva apenas o texto do resumo.
+    `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        return result.response.text().trim();
+    } catch (error: any) {
+        console.error(">>> Erro ao gerar resumo da cidade:", error.message);
+        return "Hoje o dia está convidativo para um passeio no litoral. Confira as praias melhor ranqueadas para aproveitar o sol e o mar calmo.";
+    }
+}

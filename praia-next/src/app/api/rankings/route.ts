@@ -16,28 +16,37 @@ export async function GET(request: Request) {
     try {
         const date = new Date(dateStr + 'T00:00:00Z');
 
-        const rankings = await (prisma as any).beachRanking.findMany({
-            where: {
-                date,
-                beach: {
-                    cityId,
-                    ...(anchorId ? { anchorId } : {})
-                }
-            },
-            include: {
-                beach: {
-                    select: {
-                        name: true,
-                        region: true
+        const [rankings, citySummary] = await Promise.all([
+            (prisma as any).beachRanking.findMany({
+                where: {
+                    date,
+                    beach: {
+                        cityId,
+                        ...(anchorId ? { anchorId } : {})
                     }
+                },
+                include: {
+                    beach: {
+                        select: {
+                            name: true,
+                            region: true
+                        }
+                    }
+                },
+                orderBy: {
+                    position: 'asc'
                 }
-            },
-            orderBy: {
-                position: 'asc'
-            }
-        });
+            }),
+            (prisma as any).cityDailySummary.findUnique({
+                where: { cityId_date: { cityId, date } }
+            })
+        ]);
 
-        return NextResponse.json({ success: true, data: rankings });
+        return NextResponse.json({
+            success: true,
+            data: rankings,
+            summary: citySummary?.content || null
+        });
     } catch (error: any) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }

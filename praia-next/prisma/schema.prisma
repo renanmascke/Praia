@@ -23,8 +23,21 @@ model City {
   imaId     Int?     // ID do município no sistema do IMA (ex: 2 para Floripa)
   beaches   Beach[]
   anchors   ForecastAnchor[]
+  summaries CityDailySummary[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CityDailySummary {
+  id        String   @id @default(uuid())
+  cityId    String
+  date      DateTime @db.Date
+  content   String?  @db.Text
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cityId, date])
 }
 
 model Beach {

@@ -193,6 +193,49 @@ export async function generateDailyRankings(cityId: string, date: Date) {
 
     await prisma.$transaction(upsertPromises);
     console.log(`✅ Ranking concluído (${city?.name}) para ${date.toISOString().split('T')[0]}`);
+
+    // 5. Gerar Resumo Diário da Cidade com IA
+    if (geminiKey) {
+        try {
+            console.log(`>>> Gerando Resumo Diário da Cidade para ${city?.name}...`);
+            const { generateCityDailySummary } = await import('./gemini');
+
+            // Preparar dados meteorológicos resumidos para a IA
+            const weatherSummary = forecasts.map(f => ({
+                condition: f.condition,
+                tempMax: f.tempMax,
+                tempMin: f.tempMin,
+                windDir: f.windDir
+            }));
+
+            // Preparar dados de ranking (nomes e scores)
+            const topRankings = sorted.map(r => {
+                const beach = beaches.find(b => b.id === r.beachId);
+                return {
+                    name: beach?.name,
+                    score: r.score,
+                    commentary: r.aiCommentary
+                };
+            });
+
+            const summaryContent = await generateCityDailySummary(
+                city?.name || "Santa Catarina",
+                weatherSummary,
+                topRankings
+            );
+
+            if (summaryContent) {
+                await (prisma as any).cityDailySummary.upsert({
+                    where: { cityId_date: { cityId: cityId, date } },
+                    update: { content: summaryContent },
+                    create: { cityId: cityId, date, content: summaryContent }
+                });
+                console.log(`>>> Resumo da cidade gerado e salvo com sucesso.`);
+            }
+        } catch (error: any) {
+            console.error(">>> ERRO AO GERAR RESUMO DA CIDADE:", error.message);
+        }
+    }
 }
 
 /**

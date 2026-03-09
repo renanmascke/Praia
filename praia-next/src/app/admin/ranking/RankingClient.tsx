@@ -24,15 +24,18 @@ export default function RankingClient({ initialCities, initialAnchors }: { initi
     const [selectedAnchor, setSelectedAnchor] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [rankings, setRankings] = useState<RankingItem[]>([]);
+    const [citySummary, setCitySummary] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
     const fetchRankings = async () => {
         setLoading(true);
+        setCitySummary(null);
         try {
             const res = await fetch(`/api/rankings?cityId=${selectedCity}&date=${selectedDate}&anchorId=${selectedAnchor}`);
             const data = await res.json();
             if (data.success) {
                 setRankings(data.data);
+                setCitySummary(data.summary);
             }
         } catch (error) {
             console.error("Erro ao buscar rankings:", error);
@@ -88,6 +91,24 @@ export default function RankingClient({ initialCities, initialAnchors }: { initi
                     />
                 </div>
             </div>
+
+            {/* Resumo da Cidade */}
+            {citySummary && (
+                <div className="bg-blue-600 rounded-3xl p-6 shadow-lg shadow-blue-500/20 border border-blue-400 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl transition-all group-hover:bg-white/20"></div>
+                    <div className="relative flex gap-4 items-start">
+                        <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                            <span className="text-2xl">✨</span>
+                        </div>
+                        <div className="space-y-1">
+                            <h2 className="text-white font-black uppercase tracking-widest text-[10px]">Análise do Especialista Local</h2>
+                            <div className="text-blue-50 text-sm font-medium leading-relaxed max-w-4xl prose prose-invert">
+                                {citySummary}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Listagem do Ranking */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
