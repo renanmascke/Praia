@@ -9,6 +9,7 @@ export async function GET() {
     const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID || 'NÃO CONFIGURADO';
 
     let botInfo = null;
+    let updates = null;
     if (token !== 'NÃO CONFIGURADO') {
         try {
             const botRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
@@ -16,8 +17,14 @@ export async function GET() {
                 const data = await botRes.json();
                 botInfo = data.result;
             }
+
+            const updatesRes = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=5&offset=-5`);
+            if (updatesRes.ok) {
+                const data = await updatesRes.json();
+                updates = data.result;
+            }
         } catch (e) {
-            console.error("Erro ao buscar getMe:", e);
+            console.error("Erro ao buscar info do bot:", e);
         }
     }
 
@@ -31,9 +38,14 @@ export async function GET() {
                 tokenPresent: token !== 'NÃO CONFIGURADO',
                 tokenStart: token !== 'NÃO CONFIGURADO' ? `${token.substring(0, 5)}...` : 'N/A',
                 chatIdPresent: chatId !== 'NÃO CONFIGURADO',
-                chatId: chatId !== 'NÃO CONFIGURADO' ? chatId : 'N/A',
+                chatIdConfigurado: chatId !== 'NÃO CONFIGURADO' ? chatId : 'N/A',
                 botUsername: botInfo?.username || 'N/A',
-                botName: botInfo?.first_name || 'N/A'
+                botName: botInfo?.first_name || 'N/A',
+                ultimasInteracoes: updates?.map((u: any) => ({
+                    chatId: u.message?.chat?.id || u.callback_query?.message?.chat?.id,
+                    from: u.message?.from?.username || u.callback_query?.from?.username,
+                    text: u.message?.text || 'Botão clicado'
+                })) || []
             }
         });
     } catch (error: any) {
