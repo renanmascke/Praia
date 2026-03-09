@@ -44,14 +44,17 @@ model Beach {
 }
 
 model BeachRanking {
-  id        String   @id @default(uuid())
-  beachId   String
-  date      DateTime @db.Date
-  score     Float    // Percentual 0-100
-  position  Int      // 1, 2, 3...
-  status    String   // Status IMA na data
-  beach     Beach    @relation(fields: [beachId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  beachId        String
+  date           DateTime @db.Date
+  score          Float    // Percentual 0-100
+  position       Int      // 1, 2, 3...
+  status         String   // Status IMA na data
+  totalPoints    Int      @default(0) // Total de pontos coletados
+  proprioCount   Int      @default(0) // Pontos próprios
+  improprioCount Int      @default(0) // Pontos impróprios
+  beach          Beach    @relation(fields: [beachId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
 
   @@unique([beachId, date])
 }

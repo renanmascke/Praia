@@ -5,6 +5,9 @@ interface RankingScore {
     beachId: string;
     score: number;
     status: string;
+    totalPoints: number;
+    proprioCount: number;
+    improprioCount: number;
 }
 
 /**
@@ -13,38 +16,33 @@ interface RankingScore {
 export async function calculateBeachScore(beach: any, forecast: any, report: any): Promise<number> {
     let score = 0;
 
-    // 1. Microclima / Conforto de Vento (40 pts)
-    // Compara o vento previsto com o vento ideal da praia
+    // 1. Microclima / Vento Ideal (40 pts)
     if (forecast && beach.idealWind) {
-        const currentWindDir = forecast.windDir; // Ex: "S", "NE"
+        const currentWindDir = forecast.windDir;
         const idealWinds = beach.idealWind.split(',').map((w: string) => w.trim());
 
         if (idealWinds.includes(currentWindDir)) {
-            score += 40; // Vento Ideal - Proteção máxima
+            score += 40; // Proteção máxima
         } else {
-            // Verifica se é um vento "aceitável" (ex: se ideal é S, talvez SW seja aceitável)
-            // Para simplificar agora, daremos 10 pts se não for o ideal mas também não for o oposto total
-            // TODO: Implementar lógica de oposição de vento mais refinada
             score += 10;
         }
     }
 
     // 2. Balneabilidade (30 pts)
     if (report) {
-        if (report.status === 'Própria') {
+        // Indeterminado não deve ser prejudicado, recebe a mesma pontuação de Própria
+        if (report.status === 'Própria' || report.status === 'Indeterminado') {
             score += 30;
         } else if (report.status === 'Mista') {
             score += 10;
         }
         // Imprópria = 0
     } else {
-        // Sem relatório recente, assume-se neutro ou penaliza levemente
         score += 15;
     }
 
-    // 3. Tranquilidade do Mar (20 pts)
+    // 3. Ondulação (20 pts)
     if (forecast && forecast.hourlyData) {
-        // Pega a média de waveHeight do hourlyData se disponível, ou assume 0
         const hours = (forecast.hourlyData as any[]) || [];
         const avgWave = hours.length > 0
             ? hours.reduce((acc, h) => acc + (h.waveHeight || 0), 0) / hours.length
@@ -55,18 +53,16 @@ export async function calculateBeachScore(beach: any, forecast: any, report: any
         } else if (avgWave < 1.2) {
             score += 10;
         }
-        // Mar muito agitado = 0
     }
 
-    // 4. Condições do Céu (10 pts)
+    // 4. Céu (10 pts)
     if (forecast) {
         const condition = forecast.condition.toLowerCase();
         if (condition.includes('sol') || condition.includes('limpo') || condition.includes('céu aberto')) {
             score += 10;
-        } else if (condition.includes('nublado') || condition.includes('parcialmente')) {
+        } else if (condition.includes('nublado')) {
             score += 5;
         }
-        // Chuva = 0
     }
 
     return score;
@@ -100,10 +96,19 @@ export async function generateDailyRankings(cityId: string, date: Date) {
 
         const score = await calculateBeachScore(beach, forecast, report);
 
+        // Ajuste do status para exibição quando indeterminado
+        let status = report?.status || 'Indeterminado';
+        if (status === 'Indeterminado') {
+            status = 'Indeterminado (Necessita Consulta)';
+        }
+
         results.push({
             beachId: beach.id,
             score,
-            status: report?.status || 'Indeterminado'
+            status,
+            totalPoints: report?.pts || 0,
+            proprioCount: report?.pPts || 0,
+            improprioCount: report?.improprios || 0
         });
     }
 
@@ -111,8 +116,9 @@ export async function generateDailyRankings(cityId: string, date: Date) {
     // 1. Praias com Balneabilidade 'Indeterminado' ou 'Própria'/'Mista' vêm primeiro (pelo score)
     // 2. Praias 100% Impróprias vêm por último
     const sorted = results.sort((a, b) => {
-        const aIsBad = a.status === 'Imprópria';
-        const bIsBad = b.status === 'Imprópria';
+        // Penalização máxima se 100% imprópria (pts > 0 e pPts == 0)
+        const aIsBad = a.totalPoints > 0 && a.proprioCount === 0;
+        const bIsBad = b.totalPoints > 0 && b.proprioCount === 0;
 
         if (aIsBad && !bIsBad) return 1;
         if (!aIsBad && bIsBad) return -1;
@@ -128,14 +134,20 @@ export async function generateDailyRankings(cityId: string, date: Date) {
             update: {
                 score: item.score,
                 position: i + 1,
-                status: item.status
+                status: item.status,
+                totalPoints: item.totalPoints,
+                proprioCount: item.proprioCount,
+                improprioCount: item.improprioCount
             },
             create: {
                 beachId: item.beachId,
                 date,
                 score: item.score,
                 position: i + 1,
-                status: item.status
+                status: item.status,
+                totalPoints: item.totalPoints,
+                proprioCount: item.proprioCount,
+                improprioCount: item.improprioCount
             }
         });
     }

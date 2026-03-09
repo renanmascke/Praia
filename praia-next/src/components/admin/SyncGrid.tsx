@@ -13,19 +13,23 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
     const [loading, setLoading] = useState<string | null>(null);
     const router = useRouter();
 
-    const handleSync = async (type: 'ima' | 'weather') => {
+    const handleSync = async (type: 'ima' | 'weather' | 'ranking') => {
         if (!confirm(`Deseja iniciar a sincronização do ${type.toUpperCase()} agora?`)) return;
 
         setLoading(type);
         try {
-            const endpoint = type === 'ima' ? '/api/sync-ima' : '/api/sync-weather';
+            let endpoint = '';
+            if (type === 'ima') endpoint = '/api/sync-ima';
+            else if (type === 'weather') endpoint = '/api/sync-weather';
+            else if (type === 'ranking') endpoint = '/api/sync-ranking';
+
             const res = await fetch(endpoint);
             const data = await res.json();
 
             if (data.success) {
-                alert(`Sincronização ${type.toUpperCase()} finalizada com sucesso!`);
+                alert(`${type.toUpperCase()} finalizado com sucesso!`);
             } else {
-                alert(`Erro na sincronização: ${data.error}`);
+                alert(`Erro: ${data.error}`);
             }
         } catch (error: any) {
             alert(`Falha na requisição: ${error.message}`);
@@ -36,7 +40,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
     };
 
     return (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${className}`}>
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${className}`}>
             {/* Card IMA */}
             {showIMA && (
                 <div className="bg-white rounded-3xl p-4 px-6 border border-slate-200 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
@@ -80,6 +84,26 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                     </button>
                 </div>
             )}
+
+            {/* Card Ranking */}
+            <div className="bg-white rounded-3xl p-4 px-6 border border-slate-200 shadow-sm flex items-center justify-between group hover:border-orange-200 transition-all">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                        🏆
+                    </div>
+                    <div>
+                        <h3 className="font-black text-slate-800 uppercase tracking-tight">Recalcular Ranking</h3>
+                        <p className="text-slate-500 text-xs font-medium">Processar scores e posições</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => handleSync('ranking')}
+                    disabled={!!loading}
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-md shadow-orange-500/20 disabled:opacity-50 transition-all active:scale-95"
+                >
+                    {loading === 'ranking' ? 'Processando...' : 'Recalcular'}
+                </button>
+            </div>
         </div>
     );
 }
