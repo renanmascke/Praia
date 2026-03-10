@@ -105,8 +105,10 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
             3. Condição do Mar:
                - Mar calmo (< 0.6m) é o "mar de piscina" que amamos para relaxar.
                - Mar agitado (> 1.2m) é sinal de alerta para banhistas.
-            4. Clima:
-               - Se houver previsão de chuva, mencione de forma leve mas clara.
+            4. Clima e Chuva:
+               - SE Chance de Chuva > 40%: Reduza a nota proporcionalmente (máx 75).
+               - SE Chance de Chuva > 70% ou menção a "Chuva/Aguaceiros": Penalidade severa. Nota máxima 50.
+               - O comentário DEVE mencionar a instabilidade se a chance for > 40%. Proibido usar "Paraíso", "Perfeito" ou "Dia de Sol" nestes casos.
 
             Dados das Praias em ${cityName}:
             ${JSON.stringify(beachesData, null, 2)}
@@ -157,9 +159,11 @@ export async function generateCityDailySummary(
         - SEM SAUDAÇÕES: Comece direto no conteúdo.
 
         CONTEÚDO DO BOLETIM:
-        1. Resumo do Tempo: Céu, temperatura máxima do dia e se tem risco real de chuva (fale da chance de chuva se for > 40%).
-        2. A Melhor Região: Indique a região campeã e cite o vento exato dela agora (ex: "No Norte o vento leste sopra a **10km/h**, deixando o mar uma seda").
-        3. Destaque das Praias: Liste as top 3 e foque na #1, explicando rapidamente por que ela é o paraíso de hoje (ex: mar calmo, sol batendo cedo).
+        1. Resumo do Tempo: Céu, temperatura máxima do dia e se tem risco real de chuva. 
+           - CRÍTICO: Se a chance de chuva for > 40%, você DEVE avisar. Se for > 70%, o tom deve ser de alerta/cuidado, não de convite.
+           - PROIBIDO: Usar "Paraíso", "Convite Irrecusável", "Dia Incrível" ou similares se a chance de chuva for > 50% ou se o céu estiver "Encoberto".
+        2. A Melhor Região: Indique a região campeã baseada em vento, mas pondere se a chuva não estraga o passeio.
+        3. Destaque das Praias: Liste as top 3. Se estiver chovendo ou com muita chance, sugira atividades alternativas ou praias específicas que segurem melhor o tempo instável.
 
         REQUISITOS TÉCNICOS:
         - Formatação: Markdown (use negrito para **nomes de praias**, **valores** e **regiões**).
