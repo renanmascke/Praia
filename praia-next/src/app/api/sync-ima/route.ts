@@ -26,6 +26,9 @@ export async function runImaSync(silent: boolean = false) {
 
     if (activeSync) {
         console.warn(">>> SYNC IMA ABORTADO: Já existe uma sincronização em andamento.");
+        if (!silent) {
+            await sendAdminNotification(`⚠️ *Sync IMA Abortado*\n\nMotivo: Já existe outra sincronização em andamento.`);
+        }
         return { success: false, error: "Concorrência detectada: Outra sincronização do IMA está em andamento." };
     }
 
@@ -215,7 +218,8 @@ export async function runImaSync(silent: boolean = false) {
         }
 
         // 5. Atualizar Rankings
-        await (await import('@/lib/ranking')).triggerGlobalRankingUpdate();
+        await (prisma as any).$executeRawUnsafe(`UPDATE SyncLog SET message = 'IMA: Iniciando recalculado de Rankings (3 dias)...' WHERE id = '${logId}'`);
+        await (await import('@/lib/ranking')).triggerGlobalRankingUpdate(logId);
 
         const finalResponse = {
             success: true,

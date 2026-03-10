@@ -43,6 +43,26 @@ export async function runWeatherSync(silent: boolean = false) {
     const logId = crypto.randomUUID();
     const startTime = new Date();
 
+    // 0. Limpeza de logs "travados" (mais de 15 min em RUNNING)
+    await (prisma as any).$executeRawUnsafe(`
+        UPDATE SyncLog 
+        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale'
+        WHERE status = 'RUNNING' AND type = 'WEATHER' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+    `);
+
+    // 0.1. Trava de concorrência
+    const activeSync = await prisma.syncLog.findFirst({
+        where: { type: 'WEATHER', status: 'RUNNING', startTime: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+    });
+
+    if (activeSync) {
+        console.warn(">>> WEATHER SYNC ABORTADO: Já existe uma sincronização em andamento.");
+        if (!silent) {
+            await sendAdminNotification(`⚠️ *Sync Clima Abortado*\n\nMotivo: Já existe outra sincronização em andamento.`);
+        }
+        return { success: false, error: "Outra sincronização de Clima já está em andamento." };
+    }
+
     // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`
         INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)

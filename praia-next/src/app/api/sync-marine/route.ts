@@ -32,6 +32,26 @@ export async function runMarineSync(silent: boolean = false) {
     const logId = crypto.randomUUID();
     const startTime = new Date();
 
+    // 0. Limpeza de logs "travados" (mais de 15 min em RUNNING)
+    await (prisma as any).$executeRawUnsafe(`
+        UPDATE SyncLog 
+        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale'
+        WHERE status = 'RUNNING' AND type = 'MARINE' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+    `);
+
+    // 0.1. Trava de concorrência
+    const activeSync = await prisma.syncLog.findFirst({
+        where: { type: 'MARINE', status: 'RUNNING', startTime: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+    });
+
+    if (activeSync) {
+        console.warn(">>> MARINE SYNC ABORTADO: Já existe uma sincronização em andamento.");
+        if (!silent) {
+            await sendAdminNotification(`⚠️ *Sync Mar Abortado*\n\nMotivo: Já existe outra sincronização em andamento.`);
+        }
+        return { success: false, error: "Outra sincronização de Mar já está em andamento." };
+    }
+
     await (prisma as any).$executeRawUnsafe(`
         INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)
         VALUES ('${logId}', 'MARINE', NOW(), 'RUNNING', 'Iniciando sincronização de Mar (StormGlass)...', NOW())

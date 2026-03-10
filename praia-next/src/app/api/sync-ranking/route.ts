@@ -26,6 +26,9 @@ export async function runRankingSync(silent: boolean = false) {
 
     if (activeSync) {
         console.warn(">>> RANKING ABORTADO: Já existe uma sincronização em andamento.");
+        if (!silent) {
+            await sendAdminNotification(`⚠️ *Ranking Abortado*\n\nMotivo: Já existe outra sincronização de ranking em andamento.`);
+        }
         return { success: false, error: "Concorrência detectada: Outra sincronização de Ranking está em andamento." };
     }
 

@@ -37,6 +37,8 @@ export async function GET(request: Request) {
 
     if (activeSync) {
         console.warn(">>> SYNC ALL ABORTADO: Já existe uma sincronização completa em andamento.");
+        const { sendAdminNotification } = await import('@/lib/telegram-admin');
+        await sendAdminNotification(`⚠️ *Sync ALL Abortado*\n\nMotivo: Já existe outra sincronização completa em andamento.`);
         return NextResponse.json({ success: false, error: "Outra sincronização COMPLETA já está em andamento." }, { status: 409 });
     }
 
