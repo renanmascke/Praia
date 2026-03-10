@@ -6,10 +6,28 @@ import { generateDailyRankings, triggerGlobalRankingUpdate } from '@/lib/ranking
 import { sendAdminNotification } from '@/lib/telegram-admin';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function runRankingSync(silent: boolean = false) {
     console.log(">>> RECALCULO DE RANKING CORE INICIADO <<<");
     const logId = crypto.randomUUID();
+
+    // 0. Limpeza de logs "travados" (mais de 15 min em RUNNING)
+    await (prisma as any).$executeRawUnsafe(`
+        UPDATE SyncLog 
+        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale (mais de 15 min sem resposta)'
+        WHERE status = 'RUNNING' AND type = 'RANKING' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+    `);
+
+    // 0.1. Trava de concorrência
+    const activeSync = await prisma.syncLog.findFirst({
+        where: { type: 'RANKING', status: 'RUNNING', startTime: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+    });
+
+    if (activeSync) {
+        console.warn(">>> RANKING ABORTADO: Já existe uma sincronização em andamento.");
+        return { success: false, error: "Concorrência detectada: Outra sincronização de Ranking está em andamento." };
+    }
 
     // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`
@@ -18,7 +36,7 @@ export async function runRankingSync(silent: boolean = false) {
     `);
 
     try {
-        await triggerGlobalRankingUpdate();
+        await triggerGlobalRankingUpdate(logId);
 
         // Atualizar Log de Sucesso
         await (prisma as any).$executeRawUnsafe(`

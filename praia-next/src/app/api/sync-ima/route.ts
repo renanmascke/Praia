@@ -5,11 +5,29 @@ import { beachWhitelist } from '@/lib/data';
 import { sendAdminNotification } from '@/lib/telegram-admin';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function runImaSync(silent: boolean = false) {
     console.log(">>> SYNC IMA INICIADO (CORE) <<<");
     const logId = crypto.randomUUID();
     const startTime = new Date();
+
+    // 0. Limpeza de logs "travados" (mais de 15 min em RUNNING)
+    await (prisma as any).$executeRawUnsafe(`
+        UPDATE SyncLog 
+        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale (mais de 15 min sem resposta)'
+        WHERE status = 'RUNNING' AND type = 'IMA' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+    `);
+
+    // 0.1. Trava de concorrência
+    const activeSync = await prisma.syncLog.findFirst({
+        where: { type: 'IMA', status: 'RUNNING', startTime: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+    });
+
+    if (activeSync) {
+        console.warn(">>> SYNC IMA ABORTADO: Já existe uma sincronização em andamento.");
+        return { success: false, error: "Concorrência detectada: Outra sincronização do IMA está em andamento." };
+    }
 
     // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`
@@ -63,6 +81,9 @@ export async function runImaSync(silent: boolean = false) {
             params.append('ano', new Date().getFullYear().toString());
             params.append('redirect', 'true');
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutos
+
             const res = await fetch(targetUrl, {
                 method: 'POST',
                 body: params,
@@ -71,8 +92,10 @@ export async function runImaSync(silent: boolean = false) {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
                     'Referer': targetUrl
-                }
+                },
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             if (!res.ok) {
                 console.error(`Falha ao buscar IMA para ${city.name}: ${res.status}`);

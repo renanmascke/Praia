@@ -5,6 +5,7 @@ import { getBrazilToday } from '@/lib/date-utils';
 import { generateDailyRankings } from '@/lib/ranking';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 const STORMGLASS_API_KEY = process.env.STORMGLASS_API_KEY;

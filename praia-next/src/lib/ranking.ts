@@ -1,6 +1,12 @@
 import prisma from './prisma';
 import { beachWhitelist } from './data';
 
+function logWithTime(msg: string) {
+    const now = new Date();
+    const time = now.toLocaleTimeString('pt-BR');
+    console.log(`[${time}] ${msg}`);
+}
+
 interface RankingScore {
     beachId: string;
     score: number;
@@ -72,8 +78,8 @@ export async function calculateBeachScore(beach: any, forecast: any, report: any
 /**
  * Gera e salva o ranking de todas as praias para uma cidade e data específica
  */
-export async function generateDailyRankings(cityId: string, date: Date) {
-    console.log(`>>> GERANDO RANKING: Cidade ${cityId}, Data ${date.toISOString().split('T')[0]}`);
+export async function generateDailyRankings(cityId: string, date: Date, logId?: string) {
+    logWithTime(`>>> GERANDO RANKING: Cidade ${cityId}, Data ${date.toISOString().split('T')[0]}`);
 
     const city = await prisma.city.findUnique({ where: { id: cityId } });
     const beaches = await prisma.beach.findMany({
@@ -137,7 +143,10 @@ export async function generateDailyRankings(cityId: string, date: Date) {
     const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (geminiKey) {
         try {
-            console.log(`>>> Solicitando IA Gemini para ${city?.name} (${beachesDataForAi.length} praias)...`);
+            if (logId) {
+                await (prisma as any).$executeRawUnsafe(`UPDATE SyncLog SET message = 'Ranking: Processando ${city?.name} com IA Gemini...' WHERE id = '${logId}'`);
+            }
+            logWithTime(`>>> Solicitando IA Gemini para ${city?.name} (${beachesDataForAi.length} praias)...`);
             const { generateCityRanking } = await import('./gemini');
             const aiResults = await generateCityRanking(city?.name || "Santa Catarina", beachesDataForAi);
 
@@ -197,7 +206,10 @@ export async function generateDailyRankings(cityId: string, date: Date) {
     // 5. Gerar Resumo Diário da Cidade com IA
     if (geminiKey) {
         try {
-            console.log(`>>> Gerando Resumo Diário da Cidade para ${city?.name}...`);
+            if (logId) {
+                await (prisma as any).$executeRawUnsafe(`UPDATE SyncLog SET message = 'Ranking: Gerando boletim do tempo para ${city?.name}...' WHERE id = '${logId}'`);
+            }
+            logWithTime(`>>> Gerando Resumo Diário da Cidade para ${city?.name}...`);
             const { generateCityDailySummary } = await import('./gemini');
 
             // Preparar dados meteorológicos resumidos para a IA com granularidade por período
@@ -217,7 +229,7 @@ export async function generateDailyRankings(cityId: string, date: Date) {
                 };
 
                 return {
-                    anchorName: (f.anchor as any)?.name || "Região", // Nome legível para a IA
+                    anchorName: f.anchorId, // anchorId já é único e identificável
                     dailyMax: f.tempMax,
                     dailyMin: f.tempMin,
                     periods: {
@@ -262,8 +274,8 @@ export async function generateDailyRankings(cityId: string, date: Date) {
  * Dispara a atualização global do ranking para todas as cidades
  * Abrange o dia de hoje e os próximos 2 dias
  */
-export async function triggerGlobalRankingUpdate() {
-    console.log(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS...");
+export async function triggerGlobalRankingUpdate(logId?: string) {
+    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS...");
     const { getBrazilToday } = await import('./date-utils');
     const cities = await prisma.city.findMany();
 
@@ -275,10 +287,29 @@ export async function triggerGlobalRankingUpdate() {
     const d2 = new Date(datesToRank[0]); d2.setDate(d2.getDate() + 2);
     datesToRank.push(d1, d2);
 
-    for (const city of cities) {
-        for (const date of datesToRank) {
-            await generateDailyRankings(city.id, date);
+    const rankingPromises: Promise<void>[] = [];
+
+    for (let cIdx = 0; cIdx < cities.length; cIdx++) {
+        const city = cities[cIdx];
+        for (let dIdx = 0; dIdx < datesToRank.length; dIdx++) {
+            const date = datesToRank[dIdx];
+
+            // Criamos uma função auto-contida para cada par (cidade, data)
+            const processRanking = async () => {
+                if (logId) {
+                    await (prisma as any).$executeRawUnsafe(`
+                        UPDATE SyncLog SET message = 'Ranking: Iniciando ${city.name} - Dia ${dIdx + 1}/${datesToRank.length}...' 
+                        WHERE id = '${logId}'
+                    `);
+                }
+                await generateDailyRankings(city.id, date, logId);
+            };
+
+            rankingPromises.push(processRanking());
         }
     }
-    console.log(">>> ATUALIZAÇÃO GLOBAL DE RANKINGS CONCLUÍDA.");
+
+    // Executa tudo em paralelo
+    await Promise.all(rankingPromises);
+    logWithTime(">>> ATUALIZAÇÃO GLOBAL DE RANKINGS CONCLUÍDA.");
 }

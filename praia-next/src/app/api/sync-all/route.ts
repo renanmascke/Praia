@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
     const authHeader = request.headers.get('authorization');
@@ -21,6 +22,23 @@ export async function GET(request: Request) {
     const { protocol, host } = new URL(request.url);
     const baseUrl = `${protocol}//${host}`;
     const logId = crypto.randomUUID();
+
+    // 0. Limpeza de logs "travados" de qualquer tipo (mais de 15 min em RUNNING)
+    await (prisma as any).$executeRawUnsafe(`
+        UPDATE SyncLog 
+        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale (mais de 15 min sem resposta)'
+        WHERE status = 'RUNNING' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+    `);
+
+    // 0.1. Trava de concorrência específica para ALL
+    const activeSync = await prisma.syncLog.findFirst({
+        where: { type: 'ALL', status: 'RUNNING', startTime: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+    });
+
+    if (activeSync) {
+        console.warn(">>> SYNC ALL ABORTADO: Já existe uma sincronização completa em andamento.");
+        return NextResponse.json({ success: false, error: "Outra sincronização COMPLETA já está em andamento." }, { status: 409 });
+    }
 
     // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`

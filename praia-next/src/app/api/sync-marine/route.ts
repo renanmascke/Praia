@@ -4,6 +4,7 @@ import { sendAdminNotification } from '@/lib/telegram-admin';
 import { getBrazilToday } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 const STORMGLASS_API_KEY = process.env.STORMGLASS_API_KEY;
 const STORMGLASS_DAILY_LIMIT = 10;
