@@ -51,7 +51,7 @@ export async function generateMultiDayRanking(cityName: string, dailyDataBatch: 
                 "score": número,
                 "commentary": "Sua dica curta e vibrante aqui."
             },
-            ... (todos os dias e praias solicitados)
+            ... (Você DEVE retornar um objeto para CADA UMA das praias enviadas na lista diária, sem ignorar nenhuma)
         ]
     `;
 

@@ -200,6 +200,23 @@ async function applyAiRankingBatch(cityId: string, aiResults: any[]) {
 }
 
 /**
+ * Reordena as posições do ranking de uma cidade em uma data com base nos scores refinados
+ */
+async function reorderCityRankings(cityId: string, date: Date) {
+    const rankings = await prisma.beachRanking.findMany({
+        where: { beachId: { in: (await prisma.beach.findMany({ where: { cityId }, select: { id: true } })).map(b => b.id) }, date },
+        orderBy: { score: 'desc' }
+    });
+
+    const updates = rankings.map((r, i) => (prisma as any).beachRanking.update({
+        where: { beachId_date: { beachId: r.beachId, date } },
+        data: { position: i + 1 }
+    }));
+
+    await prisma.$transaction(updates);
+}
+
+/**
  * Utilitário para rodar promessas em blocos (chunks) para controlar concorrência
  */
 async function runInChunks<T, R>(items: T[], chunkSize: number, callback: (item: T) => Promise<R>): Promise<R[]> {
@@ -262,8 +279,13 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
             await Promise.all(aiBatchPromises);
         }
 
-        // ETAPA 3: Resumos Diários (Chunked de 2 em 2 dias)
-        logWithTime(`>>> [CITY: ${city.name}] Etapa 3: Gerando resumos diários (chunk size: 2)...`);
+        // ETAPA 3: Reordenação de Posições (Após IA ter mudado os scores)
+        logWithTime(`>>> [CITY: ${city.name}] Etapa 3: Reordenando posições pós-IA...`);
+        const reorderPromises = datesToRank.map(date => reorderCityRankings(city.id, date));
+        await Promise.all(reorderPromises);
+
+        // ETAPA 4: Resumos Diários (Chunked de 2 em 2 dias)
+        logWithTime(`>>> [CITY: ${city.name}] Etapa 4: Gerando resumos diários (chunk size: 2)...`);
         await runInChunks(datesToRank, 2, async (date) => {
             const sortedRankings = await prisma.beachRanking.findMany({
                 where: { beachId: { in: beaches.map(b => b.id) }, date },
