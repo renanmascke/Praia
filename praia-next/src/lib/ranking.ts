@@ -185,8 +185,21 @@ async function applyAiRankingBatch(cityId: string, aiResults: any[]) {
     }
 }
 
+/**
+ * Utilitário para rodar promessas em blocos (chunks) para controlar concorrência
+ */
+async function runInChunks<T, R>(items: T[], chunkSize: number, callback: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        const chunkResults = await Promise.all(chunk.map(callback));
+        results.push(...chunkResults);
+    }
+    return results;
+}
+
 export async function triggerGlobalRankingUpdate(logId?: string) {
-    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS (SUPER PARALLEL)...");
+    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS (SUPER PARALLEL + THROTTLED)...");
     const { getBrazilToday } = await import('./date-utils');
     const cities = await prisma.city.findMany();
 
@@ -201,12 +214,11 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
         logWithTime(`>>> PROCESSANDO CIDADE: ${city.name}`);
         const beaches = await prisma.beach.findMany({ where: { cityId: city.id } });
 
-        // ETAPA 1: Cálculos Matemáticos (Paralelizado por dia)
-        logWithTime(`>>> [CITY: ${city.name}] Etapa 1: Cálculos matemáticos em paralelo...`);
-        const mathPromises = datesToRank.map(date => generateDailyRankings(city.id, date, logId));
-        await Promise.all(mathPromises);
+        // ETAPA 1: Cálculos Matemáticos (Chunked de 2 em 2 dias para não estourar pool de 5 conexões)
+        logWithTime(`>>> [CITY: ${city.name}] Etapa 1: Cálculos matemáticos (chunk size: 2)...`);
+        await runInChunks(datesToRank, 2, (date) => generateDailyRankings(city.id, date, logId));
 
-        // ETAPA 2: IA em Lotes (Paralelizado os dois lotes)
+        // ETAPA 2: IA em Lotes (Esses são apenas 2 lotes e passam a maior parte do tempo fora do DB, podem ser paralelos)
         const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
         if (geminiKey) {
             logWithTime(`>>> [CITY: ${city.name}] Etapa 2: Solicitando lotes Gemini em paralelo...`);
@@ -235,10 +247,9 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
             await Promise.all(aiBatchPromises);
         }
 
-        // ETAPA 3: Resumos Diários (Paralelizado por dia)
-        logWithTime(`>>> [CITY: ${city.name}] Etapa 3: Gerando resumos diários em paralelo...`);
-        const summaryPromises = datesToRank.map(async (date) => {
-            // Re-fetch rankings ordered correctly now that IA refined them
+        // ETAPA 3: Resumos Diários (Chunked de 2 em 2 dias)
+        logWithTime(`>>> [CITY: ${city.name}] Etapa 3: Gerando resumos diários (chunk size: 2)...`);
+        await runInChunks(datesToRank, 2, async (date) => {
             const sortedRankings = await prisma.beachRanking.findMany({
                 where: { beachId: { in: beaches.map(b => b.id) }, date },
                 orderBy: { score: 'desc' },
@@ -282,8 +293,6 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
                 }
             }
         });
-
-        await Promise.all(summaryPromises);
     }
 
     logWithTime(">>> ATUALIZAÇÃO GLOBAL DE RANKINGS CONCLUÍDA.");
