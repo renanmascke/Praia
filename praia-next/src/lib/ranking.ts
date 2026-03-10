@@ -174,12 +174,26 @@ export async function generateDailyRankings(cityId: string, date: Date, logId?: 
  */
 async function applyAiRankingBatch(cityId: string, aiResults: any[]) {
     for (const res of aiResults) {
-        const date = new Date(res.date);
-        await (prisma as any).beachRanking.update({
+        // Forçar data para UTC 00:00:00 para evitar desvio de fuso
+        const date = new Date(res.date + 'T00:00:00Z');
+        
+        // Usamos upsert para ser resiliente: se o cálculo matemático falhou ou não criou o registro, a IA cria.
+        await (prisma as any).beachRanking.upsert({
             where: { beachId_date: { beachId: res.beachId, date } },
-            data: {
+            update: {
                 score: res.score,
                 aiCommentary: res.commentary
+            },
+            create: {
+                beachId: res.beachId,
+                date,
+                score: res.score,
+                aiCommentary: res.commentary,
+                position: 99, // Provisório, será ordenado na leitura
+                status: 'Indeterminado',
+                totalPoints: 0,
+                proprioCount: 0,
+                improprioCount: 0
             }
         });
     }
@@ -206,7 +220,8 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
     const datesToRank = [getBrazilToday()];
     for (let i = 1; i <= 7; i++) {
         const d = new Date(datesToRank[0]);
-        d.setDate(d.getDate() + i);
+        // Usar setUTCDate para garantir que o incremento não mude o fuso horário
+        d.setUTCDate(d.getUTCDate() + i);
         datesToRank.push(d);
     }
 
@@ -263,16 +278,28 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
             if (forecasts.length > 0) {
                 try {
                     const { generateCityDailySummary } = await import('./gemini');
-                    const weatherSummary = forecasts.map(f => ({
-                        anchorName: f.anchorId,
-                        dailyMax: f.tempMax,
-                        dailyMin: f.tempMin,
-                        periods: {
-                            morning: { condition: f.condition, rainChance: f.rainChance || 0 },
-                            afternoon: { condition: f.condition, rainChance: f.rainChance || 0 },
-                            night: { condition: f.condition, rainChance: f.rainChance || 0 }
-                        }
-                    }));
+                    const weatherSummary = forecasts.map(f => {
+                        const hours = (f.hourlyData as any[]) || [];
+                        const getP = (s: number, e: number) => {
+                            const p = hours.filter(h => h.time >= s && h.time <= e);
+                            if (p.length === 0) return { condition: f.condition, rainChance: f.rainChance || 0, windSpeed: 0, windDir: f.windDir };
+                            return {
+                                condition: p[Math.floor(p.length/2)].condition,
+                                rainChance: Math.max(...p.map(h => h.rainChance || 0)),
+                                windSpeed: p.reduce((acc, h) => acc + (h.windSpeed || 0), 0) / p.length,
+                                windDir: p[Math.floor(p.length/2)].windDir
+                            };
+                        };
+                        return {
+                            anchorName: f.anchorId,
+                            dailyMax: f.tempMax,
+                            periods: {
+                                morning: getP(6, 11),
+                                afternoon: getP(12, 17),
+                                night: getP(18, 23)
+                            }
+                        };
+                    });
 
                     const topRankings = sortedRankings.map(r => ({
                         beachId: r.beachId,

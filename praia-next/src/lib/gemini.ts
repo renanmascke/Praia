@@ -116,21 +116,21 @@ export async function generateCityDailySummary(
         Gere um boletim de previsão e lazer para a cidade de ${cityName}. 
         Seu tom deve ser animado, amigável e direto ao ponto, como se fosse um guia local dando uma dica rápida.
         
-        DIRETRIZES:
-        - CONCISÃO: O texto deve ser curto e dinâmico (máximo de 1 parágrafo grande ou 2 pequenos).
+        DIRETRIZES DE CONTEÚDO:
+        - **DIFERENCIAÇÃO DE PERÍODOS**: Analise os dados de MANHÃ e TARDE. Se houver mudança significativa no vento ou chuva, RECOMENDE praias ou regiões diferentes para cada período (ex: "Manhã perfeita no Norte, mas à tarde o vento vira e o Sul fica melhor").
+        - **NOMES EXPLÍCITOS**: Você DEVE citar obrigatoriamente os nomes das **Regiões** (Norte, Sul, Leste, etc.) e as **Praias** específicas recomendadas. Não seja genérico.
+        - **CONCISÃO**: O texto deve ser curto e dinâmico (máximo de 2 parágrafos pequenos).
         - **PROIBIDO**: Não se apresente, não use saudações ("Olá"), e não cite nomes ou cargos (como "Garota do Tempo"). Comece direto no conteúdo.
-        - DADOS GEOGRÁFICOS: Use estritamente os dados de vento e temperatura fornecidos.
-        - EXPLICAÇÃO LEIGA: Traduza o vento e o mar de forma simples (ex: "brisa gostosa", "mar de piscina").
 
-        CONTEÚDO DO BOLETIM:
-        1. Resumo do Tempo: Céu, temperatura máxima e risco de chuva (avisar claramente se > 40%).
-        2. A Melhor Região: Indique a região campeã baseada no vento e nas condições do mar.
-        3. Destaque das Praias: Liste as Top 3 do ranking.
+        ESTRUTURA SUGERIDA:
+        1. Resumo do Tempo: Céu, temperatura e risco de chuva (avisar claramente se > 40%).
+        2. Dica do Especialista: Onde ir na **Manhã** vs **Tarde** baseado no vento e mar.
+        3. Top Praias: Destaque as Top 3 do ranking com nomes em negrito.
 
         DADOS:
         - Cidade: ${cityName}
-        - Clima por Regiões/Períodos: ${JSON.stringify(weatherData)}
-        - Melhores Praias (Ranking): ${JSON.stringify(rankingData.slice(0, 5))}
+        - Clima Detalhado (Manhã/Tarde/Noite): ${JSON.stringify(weatherData)}
+        - Rankings Sugeridos (Candidatos): ${JSON.stringify(rankingData.slice(0, 5))}
 
         Escreva apenas o boletim de lazer.
     `;
