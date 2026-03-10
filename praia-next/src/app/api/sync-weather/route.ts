@@ -35,11 +35,13 @@ async function checkAndIncrementQuota(provider: string, limit: number) {
     return true;
 }
 
-export async function runWeatherSync(silent: boolean = false) {
+export async function runWeatherSync(silent: boolean = false, runId?: string) {
     if (!WEATHER_API_KEY) {
         throw new Error("WEATHER_API_KEY não configurada no .env");
     }
 
+    const actualRunId = runId || crypto.randomUUID();
+    console.log(`>>> SYNC WEATHER INICIADO [RUN: ${actualRunId}] <<<`);
     const logId = crypto.randomUUID();
     const startTime = new Date();
 
@@ -141,7 +143,7 @@ export async function runWeatherSync(silent: boolean = false) {
             }
         }
 
-        const finalMessage = `Sucesso: ${weatherCalls} chamadas WeatherAPI concluídas.`;
+        const finalMessage = `Sucesso: [STEP: weather] concluído. (${weatherCalls} chamadas WeatherAPI).`;
 
         // Log final no banco
         await (prisma as any).$executeRawUnsafe(`
@@ -154,7 +156,7 @@ export async function runWeatherSync(silent: boolean = false) {
             await sendAdminNotification(`🌦️ <b>Sincronização de Clima Concluída</b>\n\nStatus: Sucesso ✅\nChamadas: ${weatherCalls}`);
         }
 
-        return { success: true, weather: weatherCalls };
+        return { success: true, weather: weatherCalls, finished: false, nextStep: 'marine', runId: actualRunId };
 
     } catch (error: any) {
         console.error(">>> ERRO NO SYNC WEATHER CORE <<<", error);
@@ -166,13 +168,14 @@ export async function runWeatherSync(silent: boolean = false) {
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, runId: actualRunId };
     }
 }
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const silent = searchParams.get('silent') === 'true';
-    const result = await runWeatherSync(silent);
+    const runId = searchParams.get('runId') || undefined;
+    const result = await runWeatherSync(silent, runId);
     return NextResponse.json(result, { status: result.success ? 200 : 500 });
 }

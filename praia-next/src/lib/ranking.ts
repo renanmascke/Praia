@@ -7,6 +7,26 @@ function logWithTime(msg: string) {
     console.log(`[${time}] ${msg}`);
 }
 
+export const RANKING_STEPS = ['math', 'ai-block-0', 'ai-block-1', 'ai-block-2', 'ai-block-3', 'summary'];
+export const GLOBAL_STEPS = ['ima', 'weather', 'marine', ...RANKING_STEPS];
+
+/**
+ * Detecta qual o próximo passo pendente para um runId
+ */
+export async function getNextPendingStep(runId: string, pipeline: string[]) {
+    const logs = await prisma.syncLog.findMany({
+        where: { runId, status: 'SUCCESS' },
+        select: { message: true }
+    });
+
+    for (const step of pipeline) {
+        // Buscamos a marcação [STEP: name] na mensagem do log de sucesso
+        const stepDone = logs.some(l => l.message?.includes(`[STEP: ${step}]`));
+        if (!stepDone) return step;
+    }
+    return null;
+}
+
 interface RankingScore {
     beachId: string;
     score: number;

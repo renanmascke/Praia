@@ -136,7 +136,8 @@ model WeatherForecast {
 
 model SyncLog {
   id        String   @id @default(uuid())
-  type      String   // 'IMA' or 'WEATHER'
+  runId     String?  // ID para agrupar execuções encadeadas (vários passos)
+  type      String   // 'IMA', 'WEATHER', 'MARINE', 'RANKING', 'ALL'
   startTime DateTime
   endTime   DateTime?
   status    String   // 'SUCCESS', 'FAILED', 'RUNNING'

@@ -4,116 +4,79 @@ import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
+import { GLOBAL_STEPS, getNextPendingStep } from '@/lib/ranking';
+import { runImaSync } from '../sync-ima/route';
+import { runWeatherSync } from '../sync-weather/route';
+import { runMarineSync } from '../sync-marine/route';
+import { runRankingSync } from '../sync-ranking/route';
+
 export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
     const authHeader = request.headers.get('authorization');
     const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
 
-    // Se não for cron, poderíamos validar a sessão do admin aqui, 
-    // mas para facilitar o agendamento via vercel.json, 
-    // garantimos que o CRON_SECRET existindo, ele deve ser respeitado.
+    // 0. Autenticação básica Cron
     if (process.env.CRON_SECRET && !isCron) {
-        // Permitir chamadas locais para desenvolvimento sem segredo
         const { hostname } = new URL(request.url);
         if (hostname !== 'localhost') {
             return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
         }
     }
 
-    const { protocol, host } = new URL(request.url);
-    const baseUrl = `${protocol}//${host}`;
-    const logId = crypto.randomUUID();
+    // 1. Definir RunId estável para Cron ou dinâmico para Manual
+    let runId = searchParams.get('runId');
+    if (!runId && isCron) {
+        // No Cron, usamos a data como ID para que pings a cada 10min continuem o mesmo trabalho
+        const today = new Date().toISOString().split('T')[0];
+        runId = `cron-daily-${today}`;
+    }
+    const actualRunId = runId || crypto.randomUUID();
 
-    // 0. Limpeza de logs "travados" de qualquer tipo (mais de 15 min em RUNNING)
+    // 2. Limpeza de logs "travados" (Global)
     await (prisma as any).$executeRawUnsafe(`
         UPDATE SyncLog 
-        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale (mais de 15 min sem resposta)'
+        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale'
         WHERE status = 'RUNNING' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
     `);
 
-    // 0.1. Trava de concorrência específica para ALL
-    const activeSync = await prisma.syncLog.findFirst({
-        where: { type: 'ALL', status: 'RUNNING', startTime: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
-    });
-
-    if (activeSync) {
-        console.warn(">>> SYNC ALL ABORTADO: Já existe uma sincronização completa em andamento.");
-        const { sendAdminNotification } = await import('@/lib/telegram-admin');
-        await sendAdminNotification(`⚠️ *Sync ALL Abortado*\n\nMotivo: Já existe outra sincronização completa em andamento.`);
-        return NextResponse.json({ success: false, error: "Outra sincronização COMPLETA já está em andamento." }, { status: 409 });
-    }
-
-    // Criar Log de Início
-    await (prisma as any).$executeRawUnsafe(`
-        INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)
-        VALUES ('${logId}', 'ALL', NOW(), 'RUNNING', 'Iniciando Sincronização Completa (IMA -> Clima -> Mar -> Ranking)...', NOW())
-    `);
-
-    const results = {
-        ima: null,
-        weather: null,
-        marine: null,
-        ranking: null
-    } as any;
-
     try {
-        console.log(">>> INICIANDO SINCRONIZAÇÃO COMPLETA (MODO DIRETO) <<<");
+        // 3. Detectar qual o próximo passo na "Esteira Global"
+        const nextStep = await getNextPendingStep(actualRunId, GLOBAL_STEPS);
+        
+        if (!nextStep) {
+            return NextResponse.json({ 
+                success: true, 
+                finished: true, 
+                message: 'Sincronização Completa: Tudo já foi atualizado para este RunId.',
+                runId: actualRunId
+            });
+        }
 
-        // 1. IMA
-        console.log("1/4: Sincronizando IMA...");
-        const { runImaSync } = await import('../sync-ima/route');
-        results.ima = await runImaSync(true);
+        console.log(`>>> SYNC ALL [RUN: ${actualRunId}] -> EXECUTANDO PASSO: ${nextStep} <<<`);
 
-        // 2. Weather
-        console.log("2/4: Sincronizando Weather...");
-        const { runWeatherSync } = await import('../sync-weather/route');
-        results.weather = await runWeatherSync(true);
+        // 4. Executar o passo detectado
+        let result: any;
+        if (nextStep === 'ima') {
+            result = await runImaSync(true, actualRunId);
+        } else if (nextStep === 'weather') {
+            result = await runWeatherSync(true, actualRunId);
+        } else if (nextStep === 'marine') {
+            result = await runMarineSync(true, actualRunId);
+        } else {
+            // Passos de Ranking (math, ai-block-0..3, summary)
+            result = await runRankingSync(true, nextStep, actualRunId);
+        }
 
-        // 3. Marine
-        console.log("3/4: Sincronizando Marine...");
-        const { runMarineSync } = await import('../sync-marine/route');
-        results.marine = await runMarineSync(true);
-
-        // 4. Ranking
-        console.log("4/4: Recalculando Ranking...");
-        const { runRankingSync } = await import('../sync-ranking/route');
-        results.ranking = await runRankingSync(true);
-
-        console.log(">>> SINCRONIZAÇÃO COMPLETA FINALIZADA <<<");
-
-        // Atualizar Log de Sucesso
-        await (prisma as any).$executeRawUnsafe(`
-            UPDATE SyncLog 
-            SET endTime = NOW(), status = 'SUCCESS', message = 'Sucesso: Sincronização completa finalizada.', response = '${JSON.stringify(results).replace(/'/g, "''")}'
-            WHERE id = '${logId}'
-        `);
-
-        // Enviar Notificação Telegram
-        const telegramMessage = `✅ <b>Sincronização Completa Finalizada</b>
-📅 ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-
-🧪 <b>IMA:</b> ${results.ima?.success ? 'Sucesso ✅' : 'Falha ❌'}
-🌤️ <b>Clima:</b> ${results.weather?.success ? `${results.weather.weather} calls ✅` : 'Falha ❌'}
-🌊 <b>Mar:</b> ${results.marine?.success ? `${results.marine.marine} calls ✅` : 'Falha ❌'}
-🏆 <b>Ranking:</b> ${results.ranking?.success ? 'Recalculado ✅' : 'Falha ❌'}
-
-🚀 <i>Executado via ${isCron ? 'Cron Job' : 'Manual'}</i>
-        `.trim();
-
-        const { sendAdminNotification } = await import('@/lib/telegram-admin');
-        await sendAdminNotification(telegramMessage);
-
-        return NextResponse.json({ success: true, results });
+        // 5. Retornar status para o orquestrador (Browser ou Cron)
+        return NextResponse.json({
+            ...result,
+            finished: false, // O despachante 'all' só termina quando nextStep for null
+            nextStep: GLOBAL_STEPS[GLOBAL_STEPS.indexOf(nextStep) + 1] || null,
+            runId: actualRunId
+        });
 
     } catch (error: any) {
-        console.error(">>> ERRO NA SINCRONIZAÇÃO COMPLETA <<<", error);
-
-        const { sendAdminNotification } = await import('@/lib/telegram-admin');
-        await sendAdminNotification(`❌ <b>ERRO NA SINCRONIZAÇÃO COMPLETA</b>\n\nErro: ${error.message}`);
-
-        await (prisma as any).$executeRawUnsafe(`
-            UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
-        `);
-
-        return NextResponse.json({ success: false, error: error.message, results }, { status: 500 });
+        console.error(">>> ERRO NO DISPATCHER GLOBAL <<<", error);
+        return NextResponse.json({ success: false, error: error.message, runId: actualRunId }, { status: 500 });
     }
 }

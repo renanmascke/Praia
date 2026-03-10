@@ -7,15 +7,16 @@ import { sendAdminNotification } from '@/lib/telegram-admin';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-export async function runImaSync(silent: boolean = false) {
-    console.log(">>> SYNC IMA INICIADO (CORE) <<<");
+export async function runImaSync(silent: boolean = false, runId?: string) {
+    const actualRunId = runId || crypto.randomUUID();
+    console.log(`>>> SYNC IMA INICIADO [RUN: ${actualRunId}] <<<`);
     const logId = crypto.randomUUID();
     const startTime = new Date();
 
     // 0. Limpeza de logs "travados" (mais de 15 min em RUNNING)
     await (prisma as any).$executeRawUnsafe(`
         UPDATE SyncLog 
-        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale (mais de 15 min sem resposta)'
+        SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale'
         WHERE status = 'RUNNING' AND type = 'IMA' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
     `);
 
@@ -214,9 +215,10 @@ export async function runImaSync(silent: boolean = false) {
         };
 
         // Atualizar Log de Sucesso
+        const successMsg = `Sucesso: [STEP: ima] concluído. (${totalBeaches} praias, ${totalReports} laudos em ${cities.length} cidades).`;
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog 
-            SET endTime = NOW(), status = 'SUCCESS', message = 'Sucesso: ${totalBeaches} praias, ${totalReports} laudos em ${cities.length} cidades.', response = '${JSON.stringify(finalResponse).replace(/'/g, "''")}'
+            SET endTime = NOW(), status = 'SUCCESS', message = '${successMsg}', response = '${JSON.stringify(finalResponse).replace(/'/g, "''")}'
             WHERE id = '${logId}'
         `);
 
@@ -224,7 +226,7 @@ export async function runImaSync(silent: boolean = false) {
             await sendAdminNotification(`🧪 <b>Sincronização IMA Concluída</b>\n\nStatus: Sucesso ✅\nCidades: ${cities.length}\nPraias: ${totalBeaches}\nLaudos: ${totalReports}`);
         }
 
-        return finalResponse;
+        return { ...finalResponse, finished: false, nextStep: 'weather', runId: actualRunId };
 
     } catch (error: any) {
         console.error(">>> ERRO NO SYNC IMA CORE <<<", error);
@@ -236,13 +238,14 @@ export async function runImaSync(silent: boolean = false) {
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, runId: actualRunId };
     }
 }
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const silent = searchParams.get('silent') === 'true';
-    const result = await runImaSync(silent);
+    const runId = searchParams.get('runId') || undefined;
+    const result = await runImaSync(silent, runId);
     return NextResponse.json(result, { status: result.success ? 200 : 500 });
 }

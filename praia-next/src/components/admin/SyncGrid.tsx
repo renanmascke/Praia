@@ -11,6 +11,7 @@ interface SyncGridProps {
 
 export default function SyncGrid({ showIMA = true, showWeather = true, className = "mb-10" }: SyncGridProps) {
     const [loading, setLoading] = useState<string | null>(null);
+    const [stepMessage, setStepMessage] = useState<string | null>(null);
     const router = useRouter();
 
     const handleSync = async (type: 'ima' | 'weather' | 'marine' | 'ranking' | 'all') => {
@@ -22,48 +23,50 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
             all: 'COMPLETA'
         };
 
-        if (!confirm(`Deseja iniciar a sincronização ${labels[type]} agora? Esta operação pode levar alguns minutos devido ao processamento por etapas.`)) return;
+        if (!confirm(`Deseja iniciar a sincronização ${labels[type]} agora? Esta operação será executada em etapas para evitar timeouts.`)) return;
 
+        const runId = crypto.randomUUID();
         setLoading(type);
-        try {
-            const executeStep = async (endpoint: string, stepLabel?: string) => {
-                const res = await fetch(endpoint);
-                const data = await res.json();
-                if (!data.success) {
-                    throw new Error(data.error || `Falha no passo ${stepLabel || ''}`);
-                }
-                return data;
-            };
+        setStepMessage('Iniciando...');
 
-            if (type === 'ranking') {
-                // Cadeia de Ranking (6 passos)
-                const steps = ['math', 'ai-block-0', 'ai-block-1', 'ai-block-2', 'ai-block-3', 'summary'];
-                for (const step of steps) {
-                    await executeStep(`/api/sync-ranking?step=${step}&silent=true`, step);
+        try {
+            let finished = false;
+            let iterations = 0;
+            const maxIterations = 20; // Segurança contra loops infinitos
+
+            while (!finished && iterations < maxIterations) {
+                iterations++;
+                const endpoint = type === 'all' ? '/api/sync-all' : `/api/sync-${type}`;
+                const res = await fetch(`${endpoint}?runId=${runId}&silent=true`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || "Erro desconhecido na etapa.");
                 }
-                alert(`Sincronização RANKING (Etapas Concluídas) finalizada com sucesso!`);
-            } else if (type === 'all') {
-                // Cadeia Completa
-                await executeStep('/api/sync-ima');
-                await executeStep('/api/sync-weather');
-                await executeStep('/api/sync-marine');
-                
-                // Seguido da cadeia de ranking
-                const rankingSteps = ['math', 'ai-block-0', 'ai-block-1', 'ai-block-2', 'ai-block-3', 'summary'];
-                for (const step of rankingSteps) {
-                    await executeStep(`/api/sync-ranking?step=${step}&silent=true`, step);
+
+                if (data.finished) {
+                    finished = true;
+                } else {
+                    // Atualiza a mensagem visual com o próximo passo sugerido pelo servidor
+                    const nextStep = data.nextStep || '...';
+                    setStepMessage(nextStep.toUpperCase());
+                    
+                    // Pequeno intervalo de segurança entre chamadas (1.5s)
+                    await new Promise(resolve => setTimeout(resolve, 1500));
                 }
-                alert(`Sincronização COMPLETA finalizada com sucesso!`);
-            } else {
-                // Sincronizações Simples
-                await executeStep(`/api/sync-${type}`);
-                alert(`Sincronização ${labels[type]} finalizada com sucesso!`);
             }
+
+            if (iterations >= maxIterations) {
+                throw new Error("Limite de etapas excedido. Verifique os logs.");
+            }
+
+            alert(`Sincronização ${labels[type]} finalizada com 100% de sucesso!`);
         } catch (error: any) {
             console.error(error);
             alert(`Falha na sincronização: ${error.message}`);
         } finally {
             setLoading(null);
+            setStepMessage(null);
             router.refresh();
         }
     };
@@ -87,7 +90,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'ima' ? 'Executando...' : 'Sincronizar'}
+                        {loading === 'ima' ? (stepMessage || 'Executando...') : 'Sincronizar'}
                     </button>
                 </div>
             </div>
@@ -107,7 +110,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-sky-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'weather' ? 'Executando...' : 'Sincronizar'}
+                        {loading === 'weather' ? (stepMessage || 'Executando...') : 'Sincronizar'}
                     </button>
                 </div>
             </div>
@@ -127,7 +130,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'marine' ? 'Executando...' : 'Sincronizar'}
+                        {loading === 'marine' ? (stepMessage || 'Executando...') : 'Sincronizar'}
                     </button>
                 </div>
             </div>
@@ -147,7 +150,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-orange-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'ranking' ? 'Processando...' : 'Recalcular'}
+                        {loading === 'ranking' ? (stepMessage || 'Processando...') : 'Recalcular'}
                     </button>
                 </div>
             </div>
@@ -167,7 +170,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-800 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'all' ? 'Executando...' : 'Tudo'}
+                        {loading === 'all' ? (stepMessage || 'Executando...') : 'Tudo'}
                     </button>
                 </div>
             </div>

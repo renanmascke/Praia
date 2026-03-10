@@ -24,37 +24,27 @@ async function checkAndIncrementQuota(provider: string, limit: number) {
     return true;
 }
 
-export async function runMarineSync(silent: boolean = false) {
+export async function runMarineSync(silent: boolean = false, runId?: string) {
     if (!STORMGLASS_API_KEY) {
         throw new Error("STORMGLASS_API_KEY não configurada no .env");
     }
 
+    const actualRunId = runId || crypto.randomUUID();
+    console.log(`>>> SYNC MARINE INICIADO [RUN: ${actualRunId}] <<<`);
     const logId = crypto.randomUUID();
     const startTime = new Date();
 
-    // 0. Limpeza de logs "travados" (mais de 15 min em RUNNING)
+    // 0. Limpeza de logs "travados"
     await (prisma as any).$executeRawUnsafe(`
         UPDATE SyncLog 
         SET status = 'FAILED', message = 'Sincronização interrompida: Timeout/Stale'
         WHERE status = 'RUNNING' AND type = 'MARINE' AND startTime < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
     `);
 
-    // 0.1. Trava de concorrência
-    const activeSync = await prisma.syncLog.findFirst({
-        where: { type: 'MARINE', status: 'RUNNING', startTime: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
-    });
-
-    if (activeSync) {
-        console.warn(">>> MARINE SYNC ABORTADO: Já existe uma sincronização em andamento.");
-        if (!silent) {
-            await sendAdminNotification(`⚠️ *Sync Mar Abortado*\n\nMotivo: Já existe outra sincronização em andamento.`);
-        }
-        return { success: false, error: "Outra sincronização de Mar já está em andamento." };
-    }
-
+    // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`
-        INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)
-        VALUES ('${logId}', 'MARINE', NOW(), 'RUNNING', 'Iniciando sincronização de Mar (StormGlass)...', NOW())
+        INSERT INTO SyncLog (id, runId, type, startTime, status, message, createdAt)
+        VALUES ('${logId}', '${actualRunId}', 'MARINE', NOW(), 'RUNNING', 'Iniciando [STEP: marine]...', NOW())
     `);
 
     try {
@@ -115,7 +105,7 @@ export async function runMarineSync(silent: boolean = false) {
         }
 
         const finalStatus = sgLimitReached ? 'PARTIAL' : 'SUCCESS';
-        const finalMessage = `Sucesso: ${sgCalls} chamadas StormGlass executadas.`;
+        const finalMessage = `Sucesso: [STEP: marine] concluído. (${sgCalls} chamadas StormGlass).`;
 
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog 
@@ -127,7 +117,7 @@ export async function runMarineSync(silent: boolean = false) {
             await sendAdminNotification(`🌊 <b>Sincronização de Mar Concluída</b>\n\nStatus: ${finalStatus} ${sgLimitReached ? '⚠️' : '✅'}\nChamadas: ${sgCalls}`);
         }
 
-        return { success: true, marine: sgCalls, limitReached: sgLimitReached };
+        return { success: true, marine: sgCalls, limitReached: sgLimitReached, finished: false, nextStep: 'math', runId: actualRunId };
 
     } catch (error: any) {
         console.error(">>> ERRO NO SYNC MARINE CORE <<<", error);
@@ -139,13 +129,14 @@ export async function runMarineSync(silent: boolean = false) {
         await (prisma as any).$executeRawUnsafe(`
             UPDATE SyncLog SET endTime = NOW(), status = 'FAILED', message = '${error.message.replace(/'/g, "''")}' WHERE id = '${logId}'
         `);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, runId: actualRunId };
     }
 }
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const silent = searchParams.get('silent') === 'true';
-    const result = await runMarineSync(silent);
+    const runId = searchParams.get('runId') || undefined;
+    const result = await runMarineSync(silent, runId);
     return NextResponse.json(result, { status: result.success ? 200 : 500 });
 }
