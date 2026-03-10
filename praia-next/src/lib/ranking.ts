@@ -282,10 +282,12 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
     // Dia atual
     const datesToRank = [getBrazilToday()];
 
-    // Próximos 2 dias
-    const d1 = new Date(datesToRank[0]); d1.setDate(d1.getDate() + 1);
-    const d2 = new Date(datesToRank[0]); d2.setDate(d2.getDate() + 2);
-    datesToRank.push(d1, d2);
+    // Próximos 7 dias (total 8 dias com hoje)
+    for (let i = 1; i <= 7; i++) {
+        const d = new Date(datesToRank[0]);
+        d.setDate(d.getDate() + i);
+        datesToRank.push(d);
+    }
 
     const rankingPromises: Promise<void>[] = [];
 

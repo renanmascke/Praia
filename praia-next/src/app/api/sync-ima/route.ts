@@ -51,32 +51,23 @@ export async function runImaSync(silent: boolean = false) {
         let totalReports = 0;
         const allReports: Record<string, Record<string, any>> = {};
 
-        for (const city of cities) {
+        // 1. Processar cidades em paralelo
+        const cityJobs = cities.map(async (city) => {
             console.log(`>>> Sincronizando cidade: ${city.name} (IMA ID: ${city.imaId})`);
+            const cityReports: Record<string, Record<string, any>> = {};
 
-            // 1. Pré-Injetar as Praias do Whitelist
+            // 1.1. Pré-Injetar as Praias do Whitelist (Apenas Floripa)
             if (city.name === 'Florianópolis') {
                 for (const bw of beachWhitelist) {
                     await prisma.beach.upsert({
                         where: { name: bw.target },
-                        update: {
-                            region: bw.region,
-                            cityId: city.id,
-                            idealWind: bw.idealWind,
-                            offlineDesc: bw.offlineDesc || ""
-                        },
-                        create: {
-                            name: bw.target,
-                            region: bw.region,
-                            cityId: city.id,
-                            idealWind: bw.idealWind,
-                            offlineDesc: bw.offlineDesc || ""
-                        }
+                        update: { region: bw.region, cityId: city.id, idealWind: bw.idealWind, offlineDesc: bw.offlineDesc || "" },
+                        create: { name: bw.target, region: bw.region, cityId: city.id, idealWind: bw.idealWind, offlineDesc: bw.offlineDesc || "" }
                     });
                 }
             }
 
-            // 2. Buscar HTML do Histórico do IMA para a cidade
+            // 1.2. Buscar HTML do Histórico do IMA
             const targetUrl = 'https://balneabilidade.ima.sc.gov.br/relatorio/historico';
             const params = new URLSearchParams();
             params.append('municipioID', city.imaId!.toString());
@@ -87,96 +78,90 @@ export async function runImaSync(silent: boolean = false) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutos
 
-            const res = await fetch(targetUrl, {
-                method: 'POST',
-                body: params,
-                cache: 'no-store',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                    'Referer': targetUrl
-                },
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
+            try {
+                const res = await fetch(targetUrl, {
+                    method: 'POST',
+                    body: params,
+                    cache: 'no-store',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                        'Referer': targetUrl
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
 
-            if (!res.ok) {
-                console.error(`Falha ao buscar IMA para ${city.name}: ${res.status}`);
-                continue;
-            }
+                if (!res.ok) return { cityName: city.name, reports: {} };
 
-            const htmlString = await res.text();
-            if (htmlString.includes("Microsoft OLE DB Provider for SQL Server")) {
-                console.error(`ERRO SQL NO SERVIDOR DO IMA PARA ${city.name}`);
-                continue;
-            }
+                const htmlString = await res.text();
+                if (htmlString.includes("Microsoft OLE DB Provider for SQL Server")) return { cityName: city.name, reports: {} };
 
-            const $ = cheerio.load(htmlString);
-            const allLabelsAndTables = $('label, table');
-            let currentPoint: any = {};
+                const $ = cheerio.load(htmlString);
+                const allLabelsAndTables = $('label, table');
+                let currentPoint: any = {};
 
-            allLabelsAndTables.each((_, el) => {
-                const $el = $(el);
-                if ($el.is('label')) {
-                    const text = $el.text().trim();
-                    if (text.includes("Balneário:")) currentPoint.balneario = text.replace("Balneário:", "").trim();
-                    if (text.includes("Ponto de Coleta:")) currentPoint.point = text.replace("Ponto de Coleta:", "").trim();
-                    if (text.includes("Localização:")) currentPoint.location = text.replace("Localização:", "").trim();
-                } else if ($el.is('table')) {
-                    const rows = $el.find('tbody tr');
-                    if (rows.length > 0 && currentPoint.point) {
-                        const cleanObjName = `${currentPoint.balneario} ${currentPoint.point} ${currentPoint.location}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-                        const match = beachWhitelist.find(bw => {
-                            const hasKeys = bw.keys.every((k: string) => cleanObjName.includes(k));
-                            const noExcludes = bw.not ? !bw.not.some((n: string) => cleanObjName.includes(n)) : true;
-                            return hasKeys && noExcludes;
-                        });
-
-                        if (match) {
-                            const target = match.target;
-                            if (!allReports[target]) allReports[target] = {};
-
-                            rows.each((_, tr) => {
-                                const tds = $(tr).find('td');
-                                if (tds.length < 9) return;
-
-                                const dateText = tds.eq(0).text().trim();
-                                const eColi = tds.eq(7).text().trim();
-                                const statusText = tds.eq(8).text().trim().toUpperCase();
-
-                                if (!dateText || !eColi) return;
-
-                                if (!allReports[target][dateText]) {
-                                    allReports[target][dateText] = { pts: 0, pPts: 0, imp: 0, ind: 0, points: [] };
-                                }
-
-                                const report = allReports[target][dateText];
-                                report.pts++;
-
-                                let status = "Indeterminado";
-                                if (statusText.includes("IMPRÓPRIA") || statusText.includes("IMPROPRIA")) {
-                                    report.imp++;
-                                    status = "Impróprio";
-                                } else if (statusText.includes("PRÓPRIA") || statusText.includes("PROPRIA")) {
-                                    report.pPts++;
-                                    status = "Próprio";
-                                } else {
-                                    report.ind++;
-                                }
-
-                                report.points.push({
-                                    name: currentPoint.point,
-                                    location: currentPoint.location,
-                                    eColi: eColi,
-                                    status: status,
-                                    date: dateText
-                                });
+                allLabelsAndTables.each((_, el) => {
+                    const $el = $(el);
+                    if ($el.is('label')) {
+                        const text = $el.text().trim();
+                        if (text.includes("Balneário:")) currentPoint.balneario = text.replace("Balneário:", "").trim();
+                        if (text.includes("Ponto de Coleta:")) currentPoint.point = text.replace("Ponto de Coleta:", "").trim();
+                        if (text.includes("Localização:")) currentPoint.location = text.replace("Localização:", "").trim();
+                    } else if ($el.is('table')) {
+                        const rows = $el.find('tbody tr');
+                        if (rows.length > 0 && currentPoint.point) {
+                            const cleanObjName = `${currentPoint.balneario} ${currentPoint.point} ${currentPoint.location}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+                            const match = beachWhitelist.find(bw => {
+                                const hasKeys = bw.keys.every((k: string) => cleanObjName.includes(k));
+                                const noExcludes = bw.not ? !bw.not.some((n: string) => cleanObjName.includes(n)) : true;
+                                return hasKeys && noExcludes;
                             });
+
+                            if (match) {
+                                const target = match.target;
+                                if (!cityReports[target]) cityReports[target] = {};
+
+                                rows.each((_, tr) => {
+                                    const tds = $(tr).find('td');
+                                    if (tds.length < 9) return;
+                                    const dateText = tds.eq(0).text().trim();
+                                    const eColi = tds.eq(7).text().trim();
+                                    const statusText = tds.eq(8).text().trim().toUpperCase();
+                                    if (!dateText || !eColi) return;
+
+                                    if (!cityReports[target][dateText]) {
+                                        cityReports[target][dateText] = { pts: 0, pPts: 0, imp: 0, ind: 0, points: [] };
+                                    }
+
+                                    const report = cityReports[target][dateText];
+                                    report.pts++;
+                                    if (statusText.includes("IMPRÓPRIA") || statusText.includes("IMPROPRIA")) report.imp++;
+                                    else if (statusText.includes("PRÓPRIA") || statusText.includes("PROPRIA")) report.pPts++;
+                                    else report.ind++;
+
+                                    report.points.push({ name: currentPoint.point, location: currentPoint.location, eColi, status: statusText.includes("PRÓPRIA") ? "Próprio" : "Impróprio", date: dateText });
+                                });
+                            }
+                            currentPoint = {};
                         }
-                        currentPoint = {};
                     }
-                }
-            });
+                });
+                return { cityName: city.name, reports: cityReports };
+            } catch (e) {
+                console.error(`Erro ao processar ${city.name}:`, e);
+                return { cityName: city.name, reports: {} };
+            }
+        });
+
+        const jobResults = await Promise.all(cityJobs);
+
+        // 2. Mesclar resultados
+        for (const res of jobResults) {
+            for (const beachName of Object.keys(res.reports)) {
+                if (!allReports[beachName]) allReports[beachName] = {};
+                Object.assign(allReports[beachName], res.reports[beachName]);
+            }
         }
 
         // 4. Persistir dados colhidos
@@ -217,9 +202,8 @@ export async function runImaSync(silent: boolean = false) {
             }
         }
 
-        // 5. Atualizar Rankings
-        await (prisma as any).$executeRawUnsafe(`UPDATE SyncLog SET message = 'IMA: Iniciando recalculado de Rankings (3 dias)...' WHERE id = '${logId}'`);
-        await (await import('@/lib/ranking')).triggerGlobalRankingUpdate(logId);
+        // 5. Atualizar LOG DE IMA (Ranking removido para evitar timeout individual)
+        await (prisma as any).$executeRawUnsafe(`UPDATE SyncLog SET message = 'IMA: Dados persistidos com sucesso.' WHERE id = '${logId}'`);
 
         const finalResponse = {
             success: true,

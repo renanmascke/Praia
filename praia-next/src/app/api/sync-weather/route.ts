@@ -78,7 +78,7 @@ export async function runWeatherSync(silent: boolean = false) {
 
         for (const anchor of anchors) {
             if (await checkAndIncrementQuota('WEATHERAPI', WEATHERAPI_MONTHLY_LIMIT)) {
-                const weatherUrl = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${anchor.latitude},${anchor.longitude}&days=3&aqi=no&alerts=no&lang=pt`;
+                const weatherUrl = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${anchor.latitude},${anchor.longitude}&days=8&aqi=no&alerts=no&lang=pt`;
                 const res = await fetch(weatherUrl);
 
                 if (res.ok) {

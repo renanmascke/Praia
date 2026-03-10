@@ -75,7 +75,7 @@ export async function runMarineSync(silent: boolean = false) {
                     const marineData = await sgRes.json();
                     sgCalls++;
 
-                    for (let i = 0; i < 3; i++) {
+                    for (let i = 0; i < 8; i++) {
                         const targetDate = new Date();
                         targetDate.setUTCDate(targetDate.getUTCDate() + i);
                         targetDate.setUTCHours(0, 0, 0, 0);
