@@ -124,7 +124,7 @@ export async function runMarineSync(silent: boolean = false) {
         `);
 
         if (!silent) {
-            await sendAdminNotification(`🌊 *Sincronização de Mar Concluída*\n\nStatus: ${finalStatus} ${sgLimitReached ? '⚠️' : '✅'}\nChamadas: ${sgCalls}`);
+            await sendAdminNotification(`🌊 <b>Sincronização de Mar Concluída</b>\n\nStatus: ${finalStatus} ${sgLimitReached ? '⚠️' : '✅'}\nChamadas: ${sgCalls}`);
         }
 
         return { success: true, marine: sgCalls, limitReached: sgLimitReached };
@@ -133,7 +133,7 @@ export async function runMarineSync(silent: boolean = false) {
         console.error(">>> ERRO NO SYNC MARINE CORE <<<", error);
 
         if (!silent) {
-            await sendAdminNotification(`❌ *ERRO NO SYNC MAR*\n\nErro: ${error.message}`);
+            await sendAdminNotification(`❌ <b>ERRO NO SYNC MAR</b>\n\nErro: ${error.message}`);
         }
 
         await (prisma as any).$executeRawUnsafe(`

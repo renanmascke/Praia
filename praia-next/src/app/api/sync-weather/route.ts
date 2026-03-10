@@ -151,7 +151,7 @@ export async function runWeatherSync(silent: boolean = false) {
         `);
 
         if (!silent) {
-            await sendAdminNotification(`🌦️ *Sincronização de Clima Concluída*\n\nStatus: Sucesso ✅\nChamadas: ${weatherCalls}`);
+            await sendAdminNotification(`🌦️ <b>Sincronização de Clima Concluída</b>\n\nStatus: Sucesso ✅\nChamadas: ${weatherCalls}`);
         }
 
         return { success: true, weather: weatherCalls };
@@ -160,7 +160,7 @@ export async function runWeatherSync(silent: boolean = false) {
         console.error(">>> ERRO NO SYNC WEATHER CORE <<<", error);
 
         if (!silent) {
-            await sendAdminNotification(`❌ *ERRO NO SYNC CLIMA*\n\nErro: ${error.message}`);
+            await sendAdminNotification(`❌ <b>ERRO NO SYNC CLIMA</b>\n\nErro: ${error.message}`);
         }
 
         await (prisma as any).$executeRawUnsafe(`

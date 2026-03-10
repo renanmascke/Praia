@@ -221,7 +221,7 @@ export async function runImaSync(silent: boolean = false) {
         `);
 
         if (!silent) {
-            await sendAdminNotification(`🧪 *Sincronização IMA Concluída*\n\nStatus: Sucesso ✅\nCidades: ${cities.length}\nPraias: ${totalBeaches}\nLaudos: ${totalReports}`);
+            await sendAdminNotification(`🧪 <b>Sincronização IMA Concluída</b>\n\nStatus: Sucesso ✅\nCidades: ${cities.length}\nPraias: ${totalBeaches}\nLaudos: ${totalReports}`);
         }
 
         return finalResponse;
@@ -230,7 +230,7 @@ export async function runImaSync(silent: boolean = false) {
         console.error(">>> ERRO NO SYNC IMA CORE <<<", error);
 
         if (!silent) {
-            await sendAdminNotification(`❌ *ERRO NO SYNC IMA*\n\nErro: ${error.message}`);
+            await sendAdminNotification(`❌ <b>ERRO NO SYNC IMA</b>\n\nErro: ${error.message}`);
         }
 
         await (prisma as any).$executeRawUnsafe(`

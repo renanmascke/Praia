@@ -12,42 +12,36 @@ export async function sendAdminNotification(message: string) {
 
     const url = `https://api.telegram.org/bot${ADMIN_TOKEN}/sendMessage`;
 
+    // Adicionar um ID único e timestamp para evitar de-duplicação e garantir unicidade
+    const now = new Date();
+    const uniqueId = Math.random().toString(36).substring(7).toUpperCase();
+    const timestampStr = now.toLocaleTimeString('pt-BR');
+    const finalMessage = `${message}\n\n<pre>ID: ${uniqueId} | ${timestampStr}</pre>`;
+
+    console.log(`TELEGRAM_ADMIN: Enviando HTML - ID ${uniqueId}. Tamanho: ${finalMessage.length}`);
+
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: ADMIN_CHAT_ID,
-                text: message,
-                parse_mode: 'Markdown'
+                text: finalMessage,
+                parse_mode: 'HTML'
             }),
-            // Adicionar um pequeno timeout para evitar que a função fique presa
-            signal: AbortSignal.timeout(8000)
+            signal: AbortSignal.timeout(10000)
         });
 
+        const data = await response.json();
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`TELEGRAM_ADMIN: Falha da API do Telegram (Status ${response.status}):`, errorText);
-
-            if (errorText.includes("can't parse entities")) {
-                const retryResponse = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: ADMIN_CHAT_ID,
-                        text: message.replace(/[*_]/g, '')
-                    })
-                });
-                return await retryResponse.json();
-            }
-            return { ok: false, error: errorText };
+            console.error(`TELEGRAM_ADMIN: Erro (Status ${response.status}):`, JSON.stringify(data));
+            return { ok: false, error: data.description || "Erro desconhecido" };
         } else {
-            const data = await response.json();
-            console.log("TELEGRAM_ADMIN: Notificação enviada. Resposta:", JSON.stringify(data));
+            console.log("TELEGRAM_ADMIN: Sucesso!", JSON.stringify(data));
             return data;
         }
     } catch (error: any) {
-        console.error("TELEGRAM_ADMIN: Erro ao conectar com API do Telegram:", error.message || error);
+        console.error("TELEGRAM_ADMIN: Erro de conexão:", error.message || error);
         return { ok: false, error: error.message };
     }
 }

@@ -78,18 +78,10 @@ export async function calculateBeachScore(beach: any, forecast: any, report: any
 /**
  * Gera e salva o ranking de todas as praias para uma cidade e data específica
  */
-export async function generateDailyRankings(cityId: string, date: Date, logId?: string) {
-    logWithTime(`>>> GERANDO RANKING: Cidade ${cityId}, Data ${date.toISOString().split('T')[0]}`);
-
-    const city = await prisma.city.findUnique({ where: { id: cityId } });
-    const beaches = await prisma.beach.findMany({
-        where: { cityId },
-        include: { anchor: true }
-    });
-
-    if (beaches.length === 0) return;
-
-    // 1. Buscar tudo em massa (Forecasts e Reports)
+/**
+ * Gera dados de praias para serem processados pela IA
+ */
+async function prepareBeachDataForAi(cityId: string, date: Date, beaches: any[]) {
     const anchorIds = Array.from(new Set(beaches.map(b => b.anchorId).filter(id => !!id))) as string[];
     const forecasts = await prisma.weatherForecast.findMany({
         where: { anchorId: { in: anchorIds }, date }
@@ -101,18 +93,11 @@ export async function generateDailyRankings(cityId: string, date: Date, logId?: 
         orderBy: { date: 'desc' }
     });
 
-    const results: RankingScore[] = [];
-    const beachesDataForAi: any[] = [];
-
-    console.log(`>>> Processando scores para ${beaches.length} praias...`);
-
-    for (const beach of beaches) {
+    return beaches.map(beach => {
         const forecast = forecasts.find(f => f.anchorId === beach.anchorId);
-        // O report mais recente da praia (reports já vem por date desc)
         const report = reports.find(r => r.beachId === beach.id);
 
-        // Dados para IA
-        beachesDataForAi.push({
+        return {
             beachId: beach.id,
             name: beach.name,
             idealWind: beach.idealWind,
@@ -125,7 +110,40 @@ export async function generateDailyRankings(cityId: string, date: Date, logId?: 
                 status: report.status,
                 lastUpdate: report.date
             } : null
-        });
+        };
+    });
+}
+
+/**
+ * Salva o ranking individual (sem chamada de IA, pois ela agora é em lote)
+ */
+export async function generateDailyRankings(cityId: string, date: Date, logId?: string) {
+    const datePrefix = `[${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}]`;
+    logWithTime(`${datePrefix} >>> CALCULANDO SCORES MATEMÁTICOS: Cidade ${cityId}`);
+
+    const beaches = await prisma.beach.findMany({
+        where: { cityId },
+        include: { anchor: true }
+    });
+
+    if (beaches.length === 0) return;
+
+    const anchorIds = Array.from(new Set(beaches.map(b => b.anchorId).filter(id => !!id))) as string[];
+    const forecasts = await prisma.weatherForecast.findMany({
+        where: { anchorId: { in: anchorIds }, date }
+    });
+
+    const beachIds = beaches.map(b => b.id);
+    const reports = await prisma.report.findMany({
+        where: { beachId: { in: beachIds } },
+        orderBy: { date: 'desc' }
+    });
+
+    const results: RankingScore[] = [];
+
+    for (const beach of beaches) {
+        const forecast = forecasts.find(f => f.anchorId === beach.anchorId);
+        const report = reports.find(r => r.beachId === beach.id);
 
         const mathScore = await calculateBeachScore(beach, forecast, report);
         results.push({
@@ -139,179 +157,133 @@ export async function generateDailyRankings(cityId: string, date: Date, logId?: 
         });
     }
 
-    // 2. Refinar com Gemini
-    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (geminiKey) {
-        try {
-            if (logId) {
-                await (prisma as any).$executeRawUnsafe(`UPDATE SyncLog SET message = 'Ranking: Processando ${city?.name} com IA Gemini...' WHERE id = '${logId}'`);
-            }
-            logWithTime(`>>> Solicitando IA Gemini para ${city?.name} (${beachesDataForAi.length} praias)...`);
-            const { generateCityRanking } = await import('./gemini');
-            const aiResults = await generateCityRanking(city?.name || "Santa Catarina", beachesDataForAi);
+    // Ordenação inicial (será refinada pela IA depois)
+    const sorted = results.sort((a, b) => b.score - a.score);
 
-            for (const ai of aiResults) {
-                const index = results.findIndex(r => r.beachId === ai.beachId);
-                if (index !== -1) {
-                    results[index].score = ai.score;
-                    results[index].aiCommentary = ai.commentary;
-                }
-            }
-            console.log(`>>> IA Gemini processada com sucesso.`);
-        } catch (error: any) {
-            console.error(">>> ERRO GEMINI IA:", error.message);
-        }
-    } else {
-        console.log(">>> Gemini IA ignorada (GOOGLE_GENERATIVE_AI_API_KEY ausente).");
-    }
-
-    // 3. Ordenação
-    const sorted = results.sort((a, b) => {
-        const aIsBad = a.totalPoints > 0 && a.proprioCount === 0;
-        const bIsBad = b.totalPoints > 0 && b.proprioCount === 0;
-        if (aIsBad && !bIsBad) return 1;
-        if (!aIsBad && bIsBad) return -1;
-        return b.score - a.score;
-    });
-
-    // 4. Salvar tudo via Transação (MUITO mais rápido)
-    console.log(`>>> Salvando ${sorted.length} rankings em lote...`);
     const upsertPromises = sorted.map((item, i) => (prisma as any).beachRanking.upsert({
         where: { beachId_date: { beachId: item.beachId, date } },
-        update: {
-            score: item.score,
-            position: i + 1,
-            status: item.status,
-            totalPoints: item.totalPoints,
-            proprioCount: item.proprioCount,
-            improprioCount: item.improprioCount,
-            aiCommentary: item.aiCommentary
-        },
-        create: {
-            beachId: item.beachId,
-            date,
-            score: item.score,
-            position: i + 1,
-            status: item.status,
-            totalPoints: item.totalPoints,
-            proprioCount: item.proprioCount,
-            improprioCount: item.improprioCount,
-            aiCommentary: item.aiCommentary
-        }
+        update: { score: item.score, position: i + 1, status: item.status, totalPoints: item.totalPoints, proprioCount: item.proprioCount, improprioCount: item.improprioCount },
+        create: { beachId: item.beachId, date, score: item.score, position: i + 1, status: item.status, totalPoints: item.totalPoints, proprioCount: item.proprioCount, improprioCount: item.improprioCount }
     }));
 
     await prisma.$transaction(upsertPromises);
-    console.log(`✅ Ranking concluído (${city?.name}) para ${date.toISOString().split('T')[0]}`);
-
-    // 5. Gerar Resumo Diário da Cidade com IA
-    if (geminiKey) {
-        try {
-            if (logId) {
-                await (prisma as any).$executeRawUnsafe(`UPDATE SyncLog SET message = 'Ranking: Gerando boletim do tempo para ${city?.name}...' WHERE id = '${logId}'`);
-            }
-            logWithTime(`>>> Gerando Resumo Diário da Cidade para ${city?.name}...`);
-            const { generateCityDailySummary } = await import('./gemini');
-
-            // Preparar dados meteorológicos resumidos para a IA com granularidade por período
-            const weatherSummary = forecasts.map(f => {
-                const hours = (f.hourlyData as any[]) || [];
-
-                const getPeriodData = (start: number, end: number) => {
-                    const periodHours = hours.filter(h => h.time >= start && h.time <= end);
-                    if (periodHours.length === 0) return null;
-
-                    return {
-                        condition: periodHours[Math.floor(periodHours.length / 2)]?.condition || f.condition,
-                        avgWindSpeed: periodHours.reduce((acc, h) => acc + (h.windSpeed || 0), 0) / periodHours.length,
-                        windDir: periodHours[Math.floor(periodHours.length / 2)]?.windDir || f.windDir,
-                        rainChance: Math.max(...periodHours.map(h => h.rainChance || 0))
-                    };
-                };
-
-                return {
-                    anchorName: f.anchorId, // anchorId já é único e identificável
-                    dailyMax: f.tempMax,
-                    dailyMin: f.tempMin,
-                    periods: {
-                        morning: getPeriodData(6, 11),
-                        afternoon: getPeriodData(12, 17),
-                        night: getPeriodData(18, 23)
-                    }
-                };
-            });
-
-            // Preparar dados de ranking (nomes e scores)
-            const topRankings = sorted.map(r => {
-                const beach = beaches.find(b => b.id === r.beachId);
-                return {
-                    name: beach?.name,
-                    score: r.score,
-                    commentary: r.aiCommentary
-                };
-            });
-
-            const summaryContent = await generateCityDailySummary(
-                city?.name || "Santa Catarina",
-                weatherSummary,
-                topRankings
-            );
-
-            if (summaryContent) {
-                await (prisma as any).cityDailySummary.upsert({
-                    where: { cityId_date: { cityId: cityId, date } },
-                    update: { content: summaryContent },
-                    create: { cityId: cityId, date, content: summaryContent }
-                });
-                console.log(`>>> Resumo da cidade gerado e salvo com sucesso.`);
-            }
-        } catch (error: any) {
-            console.error(">>> ERRO AO GERAR RESUMO DA CIDADE:", error.message);
-        }
-    }
 }
 
 /**
- * Dispara a atualização global do ranking para todas as cidades
- * Abrange o dia de hoje e os próximos 2 dias
+ * Função para injetar os resultados da IA em lote no banco
  */
+async function applyAiRankingBatch(cityId: string, aiResults: any[]) {
+    for (const res of aiResults) {
+        const date = new Date(res.date);
+        await (prisma as any).beachRanking.update({
+            where: { beachId_date: { beachId: res.beachId, date } },
+            data: {
+                score: res.score,
+                aiCommentary: res.commentary
+            }
+        });
+    }
+}
+
 export async function triggerGlobalRankingUpdate(logId?: string) {
-    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS...");
+    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS (BATCH MODE)...");
     const { getBrazilToday } = await import('./date-utils');
     const cities = await prisma.city.findMany();
 
-    // Dia atual
     const datesToRank = [getBrazilToday()];
-
-    // Próximos 7 dias (total 8 dias com hoje)
     for (let i = 1; i <= 7; i++) {
         const d = new Date(datesToRank[0]);
         d.setDate(d.getDate() + i);
         datesToRank.push(d);
     }
 
-    const rankingPromises: Promise<void>[] = [];
+    for (const city of cities) {
+        logWithTime(`>>> PROCESSANDO CIDADE: ${city.name}`);
+        const beaches = await prisma.beach.findMany({ where: { cityId: city.id } });
 
-    for (let cIdx = 0; cIdx < cities.length; cIdx++) {
-        const city = cities[cIdx];
-        for (let dIdx = 0; dIdx < datesToRank.length; dIdx++) {
-            const date = datesToRank[dIdx];
+        // 1. Cálculo Matemático (Em série por cidade para não sobrecarregar DB, mas rápido)
+        for (const date of datesToRank) {
+            await generateDailyRankings(city.id, date, logId);
+        }
 
-            // Criamos uma função auto-contida para cada par (cidade, data)
-            const processRanking = async () => {
-                if (logId) {
-                    await (prisma as any).$executeRawUnsafe(`
-                        UPDATE SyncLog SET message = 'Ranking: Iniciando ${city.name} - Dia ${dIdx + 1}/${datesToRank.length}...' 
-                        WHERE id = '${logId}'
-                    `);
+        // 2. IA em Lotes (2 lotes de 4 dias)
+        const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+        if (geminiKey) {
+            const batches = [datesToRank.slice(0, 4), datesToRank.slice(4, 8)];
+
+            for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+                const batchDates = batches[bIdx];
+                const batchDataForAi: any[] = [];
+
+                for (const date of batchDates) {
+                    const dailyBeaches = await prepareBeachDataForAi(city.id, date, beaches);
+                    batchDataForAi.push({
+                        date: date.toISOString().split('T')[0],
+                        beaches: dailyBeaches
+                    });
                 }
-                await generateDailyRankings(city.id, date, logId);
-            };
 
-            rankingPromises.push(processRanking());
+                try {
+                    logWithTime(`>>> [CITY: ${city.name}] Solicitando Lote IA ${bIdx + 1}/${batches.length}...`);
+                    const { generateMultiDayRanking } = await import('./gemini');
+                    const aiResults = await generateMultiDayRanking(city.name, batchDataForAi);
+                    await applyAiRankingBatch(city.id, aiResults);
+                    logWithTime(`>>> [CITY: ${city.name}] Lote IA ${bIdx + 1} processado.`);
+                } catch (error: any) {
+                    console.error(`>>> ERRO NO LOTE IA ${bIdx + 1}:`, error.message);
+                }
+            }
+        }
+
+        // 3. Resumos Diários (Mantemos individual pois a IA precisa focar no clima de 1 dia)
+        for (const date of datesToRank) {
+            // Re-fetch rankings ordered correctly now that IA refined them
+            const sortedRankings = await prisma.beachRanking.findMany({
+                where: { beachId: { in: beaches.map(b => b.id) }, date },
+                orderBy: { score: 'desc' },
+                take: 5
+            });
+
+            // Resumo da cidade
+            const forecasts = await prisma.weatherForecast.findMany({
+                where: { anchorId: { in: beaches.map(b => b.anchorId).filter(id => !!id) as string[] }, date }
+            });
+
+            if (forecasts.length > 0) {
+                try {
+                    const { generateCityDailySummary } = await import('./gemini');
+                    // (Lógica de weatherSummary simplificada para manter DRY ou extraída)
+                    const weatherSummary = forecasts.map(f => ({
+                        anchorName: f.anchorId,
+                        dailyMax: f.tempMax,
+                        dailyMin: f.tempMin,
+                        periods: {
+                            morning: { condition: f.condition, rainChance: f.rainChance || 0 }, // Simplificado para o resumo
+                            afternoon: { condition: f.condition, rainChance: f.rainChance || 0 },
+                            night: { condition: f.condition, rainChance: f.rainChance || 0 }
+                        }
+                    }));
+
+                    const topRankings = sortedRankings.map(r => ({
+                        beachId: r.beachId,
+                        score: r.score,
+                        commentary: r.aiCommentary
+                    }));
+
+                    const summaryContent = await generateCityDailySummary(city.name, weatherSummary, topRankings);
+                    if (summaryContent) {
+                        await (prisma as any).cityDailySummary.upsert({
+                            where: { cityId_date: { cityId: city.id, date } },
+                            update: { content: summaryContent },
+                            create: { cityId: city.id, date, content: summaryContent }
+                        });
+                    }
+                } catch (e) {
+                    console.error("Erro no resumo:", e);
+                }
+            }
         }
     }
 
-    // Executa tudo em paralelo
-    await Promise.all(rankingPromises);
     logWithTime(">>> ATUALIZAÇÃO GLOBAL DE RANKINGS CONCLUÍDA.");
 }

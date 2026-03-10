@@ -4,7 +4,7 @@ const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const PRIMARY_MODEL = "gemini-2.5-flash";
-const FALLBACK_MODEL = "gemini-3-flash";
+const FALLBACK_MODEL = "gemini-1.5-flash";
 
 function isQuotaError(error: any): boolean {
     const message = error?.message?.toLowerCase() || "";
@@ -12,71 +12,65 @@ function isQuotaError(error: any): boolean {
 }
 
 export interface AiRankingResult {
+    date: string; // ISO format
     beachId: string;
     score: number;
     commentary: string;
 }
 
-export async function generateCityRanking(cityName: string, beachesData: any[]): Promise<AiRankingResult[]> {
+export async function generateMultiDayRanking(cityName: string, dailyDataBatch: any[]): Promise<AiRankingResult[]> {
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY não configurada no .env");
     }
 
     let currentModelName = PRIMARY_MODEL;
 
+    const buildPrompt = () => `
+        Analise os dados meteorológicos e de balneabilidade das praias da cidade de ${cityName} para vários dias e atribua um score de 0 a 100 para cada uma.
+        O objetivo é indicar quão agradável a praia está para lazer e banho de mar.
+
+        REQUISITOS DE ESTILO:
+        - Seja vibrante e informativo, agindo como um guia local experiente.
+        - **PROIBIDO**: Não use saudações ("Olá", "Bom dia"), não se apresente ("Eu sou...", "Como especialista...") e não cite cargos (como "Garota do Tempo").
+        - O comentário deve ser uma frase curta, única e cheia de vida.
+
+        CRITÉRIOS DE AVALIAÇÃO:
+        1. Balneabilidade: Se for "Impróprio", score máximo 30. Se for "Mista", máximo 50. Se for "Próprio", base 70+.
+        2. Vento: Se vento > 8km/h, priorize praias com "Vento Ideal" compatível. Se vento <= 8km/h, considere um dia premium ("mar de espelho").
+        3. Mar: Ondas < 0.6m são ótimas para banho. Ondas > 1.2m são perigosas.
+        4. Chuva: Se Chance de Chuva > 40%, reduza a nota e mencione a instabilidade de forma clara.
+
+        DADOS PARA PROCESSAR:
+        ${JSON.stringify(dailyDataBatch, null, 2)}
+        
+        RETORNE OBRIGATORIAMENTE UM JSON NO FORMATO:
+        [
+            {
+                "date": "YYYY-MM-DD",
+                "beachId": "id-da-praia",
+                "score": número,
+                "commentary": "Sua dica curta e vibrante aqui."
+            },
+            ... (todos os dias e praias solicitados)
+        ]
+    `;
+
     try {
-        console.log(`>>> Tentando modelo Gemini: ${currentModelName} para ${cityName}...`);
+        console.log(`>>> [BATCH] Tentando modelo Gemini: ${currentModelName} para ${cityName}...`);
         const model = genAI.getGenerativeModel({
             model: currentModelName,
             generationConfig: { responseMimeType: "application/json" }
         });
 
-        const prompt = `
-            Você é uma especialista apaixonada por lazer e bem-estar nas praias de Santa Catarina. 
-            Sua tarefa é analisar dados de várias praias na cidade de ${cityName} e atribuir um score de 0 a 100 para cada uma, indicando quão "perfeita" a praia está para um dia de lazer relaxante, banho de mar e "ficar de boa" hoje.
-            
-            REQUISITOS DE ESTILO (NÃO SEJA ROBÓTICO):
-            - Evite frases padrão como "Perfeita para o banho". Varie o vocabulário.
-            - Use as características únicas de cada praia (ex: se é uma praia familiar, se tem águas cristalinas, se é mais rústica).
-            - O comentário deve ser uma frase curta, mas vibrante e cheia de vida, como uma dica quente de quem conhece cada centímetro de areia.
-
-            Critérios de Avaliação (Importância Decrescente):
-            1. Balneabilidade (IMA): 
-               - Status "Impróprio" ou alta concentração de E.Coli = Nota Baixa (máx 30). Fator eliminatório.
-               - Status "Mista" = Nota Média (máx 50). Destaque a parcialidade e recomende cuidado com os pontos.
-               - Status "Próprio" ou "Indeterminado" = Nota Alta (base 70).
-            2. Vento e Conforto (Guarda-Sol):
-               - IF Vento > 8km/h: Pontue bem as praias abrigadas (Ventos Ideais).
-               - IF Vento <= 8km/h: Considere um dia premium para todas. Use termos como "brisa acariciante".
-            3. Condição do Mar:
-               - Mar calmo (< 0.6m) é o "mar de piscina" que amamos para relaxar.
-               - Mar agitado (> 1.2m) é sinal de alerta para banhistas.
-            4. Clima:
-               - Se houver previsão de chuva, mencione de forma leve mas clara.
-
-            Dados das Praias em ${cityName}:
-            ${JSON.stringify(beachesData, null, 2)}
-            
-            Responda obrigatoriamente um JSON no formato:
-            [
-                {
-                    "beachId": "id-string",
-                    "score": número,
-                    "commentary": "Uma frase curta, única e vibrante de indicação local."
-                },
-                ...
-            ]
-        `;
-
-        const result = await model.generateContent(prompt);
+        const result = await model.generateContent(buildPrompt());
         const text = result.response.text();
         const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(cleanedText);
-        console.log(`>>> Sucesso com o modelo: ${currentModelName}`);
+        console.log(`>>> [BATCH] Sucesso com o modelo: ${currentModelName}`);
         return parsed;
     } catch (error: any) {
         if (isQuotaError(error) && currentModelName === PRIMARY_MODEL) {
-            console.warn(`>>> Limite de cota atingido para ${PRIMARY_MODEL}. Tentando fallback para ${FALLBACK_MODEL}...`);
+            console.warn(`>>> [BATCH] Limite de cota atingido para ${PRIMARY_MODEL}. Tentando fallback para ${FALLBACK_MODEL}...`);
             currentModelName = FALLBACK_MODEL;
 
             const fallbackModel = genAI.getGenerativeModel({
@@ -85,59 +79,28 @@ export async function generateCityRanking(cityName: string, beachesData: any[]):
             });
 
             try {
-                const prompt = `
-            Você é uma especialista apaixonada por lazer e bem-estar nas praias de Santa Catarina. 
-            Sua tarefa é analisar dados de várias praias na cidade de ${cityName} e atribuir um score de 0 a 100 para cada uma, indicando quão "perfeita" a praia está para um dia de lazer relaxante, banho de mar e "ficar de boa" hoje.
-            
-            REQUISITOS DE ESTILO (NÃO SEJA ROBÓTICO):
-            - Evite frases padrão como "Perfeita para o banho". Varie o vocabulário.
-            - Use as características únicas de cada praia (ex: se é uma praia familiar, se tem águas cristalinas, se é mais rústica).
-            - O comentário deve ser uma frase curta, mas vibrante e cheia de vida, como uma dica quente de quem conhece cada centímetro de areia.
-
-            Critérios de Avaliação (Importância Decrescente):
-            1. Balneabilidade (IMA): 
-               - Status "Impróprio" ou alta concentração de E.Coli = Nota Baixa (máx 30). Fator eliminatório.
-               - Status "Mista" = Nota Média (máx 50). Destaque a parcialidade e recomende cuidado com os pontos.
-               - Status "Próprio" ou "Indeterminado" = Nota Alta (base 70).
-            2. Vento e Conforto (Guarda-Sol):
-               - IF Vento > 8km/h: Pontue bem as praias abrigadas (Ventos Ideais).
-               - IF Vento <= 8km/h: Considere um dia premium para todas. Use termos como "brisa acariciante".
-            3. Condição do Mar:
-               - Mar calmo (< 0.6m) é o "mar de piscina" que amamos para relaxar.
-               - Mar agitado (> 1.2m) é sinal de alerta para banhistas.
-            4. Clima e Chuva:
-               - SE Chance de Chuva > 40%: Reduza a nota proporcionalmente (máx 75).
-               - SE Chance de Chuva > 70% ou menção a "Chuva/Aguaceiros": Penalidade severa. Nota máxima 50.
-               - O comentário DEVE mencionar a instabilidade se a chance for > 40%. Proibido usar "Paraíso", "Perfeito" ou "Dia de Sol" nestes casos.
-
-            Dados das Praias em ${cityName}:
-            ${JSON.stringify(beachesData, null, 2)}
-            
-            Responda obrigatoriamente um JSON no formato:
-            [
-                {
-                    "beachId": "id-string",
-                    "score": número,
-                    "commentary": "Uma frase curta, única e vibrante de indicação local."
-                },
-                ...
-            ]
-        `;
-                const resultFallback = await fallbackModel.generateContent(prompt);
+                const resultFallback = await fallbackModel.generateContent(buildPrompt());
                 const textFallback = resultFallback.response.text();
                 const cleanedTextFallback = textFallback.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsedFallback = JSON.parse(cleanedTextFallback);
-                console.log(`>>> Sucesso com o modelo de fallback: ${currentModelName}`);
+                console.log(`>>> [BATCH] Sucesso com o modelo de fallback: ${currentModelName}`);
                 return parsedFallback;
             } catch (fallbackError: any) {
-                console.error(`>>> Falha crítica inclusive no fallback ${FALLBACK_MODEL}:`, fallbackError.message);
+                console.error(`>>> [BATCH] Falha crítica inclusive no fallback ${FALLBACK_MODEL}:`, fallbackError.message);
                 throw fallbackError;
             }
         }
 
-        console.error(`>>> Falha crítica com modelo ${currentModelName}:`, error.message);
+        console.error(`>>> [BATCH] Falha crítica com modelo ${currentModelName}:`, error.message);
         throw error;
     }
+}
+
+// Manteremos generateCityRanking para retrocompatibilidade se necessário, mas marcamos como deprecação interna
+export async function generateCityRanking(cityName: string, beachesData: any[]): Promise<AiRankingResult[]> {
+    const today = new Date().toISOString().split('T')[0];
+    const batchedData = [{ date: today, beaches: beachesData }];
+    return generateMultiDayRanking(cityName, batchedData);
 }
 
 export async function generateCityDailySummary(
@@ -150,30 +113,26 @@ export async function generateCityDailySummary(
     let currentModelName = PRIMARY_MODEL;
 
     const buildPrompt = () => `
-        Você é a "Garota do Tempo" especialista em lazer de ${cityName}. Seu tom é animado, amigável e direto ao ponto, como um boletim rápido de rádio ou TV para quem quer ir à praia agora.
+        Gere um boletim de previsão e lazer para a cidade de ${cityName}. 
+        Seu tom deve ser animado, amigável e direto ao ponto, como se fosse um guia local dando uma dica rápida.
         
-        DIRETRIZES DE PERSONA E PRECISÃO:
-        - CONCISÃO: Seja direta. O texto deve ser curto e dinâmico (máximo de 1 parágrafo grande ou 2 bem pequenos).
-        - DADOS GEOGRÁFICOS: Se você recomendar uma região como a melhor (ex: "Região Norte"), você DEVE usar estritamente os dados de vento e temperatura desse ponto específico nos dados meteorológicos. Não misture dados de regiões diferentes.
-        - EXPLICAÇÃO LEIGA: Traduza o vento de forma simples (ex: "12km/h é aquela brisinha gostosa").
-        - SEM SAUDAÇÕES: Comece direto no conteúdo.
+        DIRETRIZES:
+        - CONCISÃO: O texto deve ser curto e dinâmico (máximo de 1 parágrafo grande ou 2 pequenos).
+        - **PROIBIDO**: Não se apresente, não use saudações ("Olá"), e não cite nomes ou cargos (como "Garota do Tempo"). Comece direto no conteúdo.
+        - DADOS GEOGRÁFICOS: Use estritamente os dados de vento e temperatura fornecidos.
+        - EXPLICAÇÃO LEIGA: Traduza o vento e o mar de forma simples (ex: "brisa gostosa", "mar de piscina").
 
         CONTEÚDO DO BOLETIM:
-        1. Resumo do Tempo: Céu, temperatura máxima do dia e se tem risco real de chuva. 
-           - CRÍTICO: Se a chance de chuva for > 40%, você DEVE avisar. Se for > 70%, o tom deve ser de alerta/cuidado, não de convite.
-           - PROIBIDO: Usar "Paraíso", "Convite Irrecusável", "Dia Incrível" ou similares se a chance de chuva for > 50% ou se o céu estiver "Encoberto".
-        2. A Melhor Região: Indique a região campeã baseada em vento, mas pondere se a chuva não estraga o passeio.
-        3. Destaque das Praias: Liste as top 3. Se estiver chovendo ou com muita chance, sugira atividades alternativas ou praias específicas que segurem melhor o tempo instável.
-
-        REQUISITOS TÉCNICOS:
-        - Formatação: Markdown (use negrito para **nomes de praias**, **valores** e **regiões**).
+        1. Resumo do Tempo: Céu, temperatura máxima e risco de chuva (avisar claramente se > 40%).
+        2. A Melhor Região: Indique a região campeã baseada no vento e nas condições do mar.
+        3. Destaque das Praias: Liste as Top 3 do ranking.
 
         DADOS:
         - Cidade: ${cityName}
         - Clima por Regiões/Períodos: ${JSON.stringify(weatherData)}
         - Melhores Praias (Ranking): ${JSON.stringify(rankingData.slice(0, 5))}
 
-        Escreva apenas o boletim da Garota do Tempo.
+        Escreva apenas o boletim de lazer.
     `;
 
     try {
