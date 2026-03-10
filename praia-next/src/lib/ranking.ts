@@ -186,7 +186,7 @@ async function applyAiRankingBatch(cityId: string, aiResults: any[]) {
 }
 
 export async function triggerGlobalRankingUpdate(logId?: string) {
-    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS (BATCH MODE)...");
+    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS (SUPER PARALLEL)...");
     const { getBrazilToday } = await import('./date-utils');
     const cities = await prisma.city.findMany();
 
@@ -201,20 +201,19 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
         logWithTime(`>>> PROCESSANDO CIDADE: ${city.name}`);
         const beaches = await prisma.beach.findMany({ where: { cityId: city.id } });
 
-        // 1. Cálculo Matemático (Em série por cidade para não sobrecarregar DB, mas rápido)
-        for (const date of datesToRank) {
-            await generateDailyRankings(city.id, date, logId);
-        }
+        // ETAPA 1: Cálculos Matemáticos (Paralelizado por dia)
+        logWithTime(`>>> [CITY: ${city.name}] Etapa 1: Cálculos matemáticos em paralelo...`);
+        const mathPromises = datesToRank.map(date => generateDailyRankings(city.id, date, logId));
+        await Promise.all(mathPromises);
 
-        // 2. IA em Lotes (2 lotes de 4 dias)
+        // ETAPA 2: IA em Lotes (Paralelizado os dois lotes)
         const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
         if (geminiKey) {
+            logWithTime(`>>> [CITY: ${city.name}] Etapa 2: Solicitando lotes Gemini em paralelo...`);
             const batches = [datesToRank.slice(0, 4), datesToRank.slice(4, 8)];
 
-            for (let bIdx = 0; bIdx < batches.length; bIdx++) {
-                const batchDates = batches[bIdx];
+            const aiBatchPromises = batches.map(async (batchDates, bIdx) => {
                 const batchDataForAi: any[] = [];
-
                 for (const date of batchDates) {
                     const dailyBeaches = await prepareBeachDataForAi(city.id, date, beaches);
                     batchDataForAi.push({
@@ -224,19 +223,21 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
                 }
 
                 try {
-                    logWithTime(`>>> [CITY: ${city.name}] Solicitando Lote IA ${bIdx + 1}/${batches.length}...`);
                     const { generateMultiDayRanking } = await import('./gemini');
                     const aiResults = await generateMultiDayRanking(city.name, batchDataForAi);
                     await applyAiRankingBatch(city.id, aiResults);
-                    logWithTime(`>>> [CITY: ${city.name}] Lote IA ${bIdx + 1} processado.`);
+                    logWithTime(`>>> [CITY: ${city.name}] Lote IA ${bIdx + 1} concluído.`);
                 } catch (error: any) {
                     console.error(`>>> ERRO NO LOTE IA ${bIdx + 1}:`, error.message);
                 }
-            }
+            });
+
+            await Promise.all(aiBatchPromises);
         }
 
-        // 3. Resumos Diários (Mantemos individual pois a IA precisa focar no clima de 1 dia)
-        for (const date of datesToRank) {
+        // ETAPA 3: Resumos Diários (Paralelizado por dia)
+        logWithTime(`>>> [CITY: ${city.name}] Etapa 3: Gerando resumos diários em paralelo...`);
+        const summaryPromises = datesToRank.map(async (date) => {
             // Re-fetch rankings ordered correctly now that IA refined them
             const sortedRankings = await prisma.beachRanking.findMany({
                 where: { beachId: { in: beaches.map(b => b.id) }, date },
@@ -244,7 +245,6 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
                 take: 5
             });
 
-            // Resumo da cidade
             const forecasts = await prisma.weatherForecast.findMany({
                 where: { anchorId: { in: beaches.map(b => b.anchorId).filter(id => !!id) as string[] }, date }
             });
@@ -252,13 +252,12 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
             if (forecasts.length > 0) {
                 try {
                     const { generateCityDailySummary } = await import('./gemini');
-                    // (Lógica de weatherSummary simplificada para manter DRY ou extraída)
                     const weatherSummary = forecasts.map(f => ({
                         anchorName: f.anchorId,
                         dailyMax: f.tempMax,
                         dailyMin: f.tempMin,
                         periods: {
-                            morning: { condition: f.condition, rainChance: f.rainChance || 0 }, // Simplificado para o resumo
+                            morning: { condition: f.condition, rainChance: f.rainChance || 0 },
                             afternoon: { condition: f.condition, rainChance: f.rainChance || 0 },
                             night: { condition: f.condition, rainChance: f.rainChance || 0 }
                         }
@@ -282,7 +281,9 @@ export async function triggerGlobalRankingUpdate(logId?: string) {
                     console.error("Erro no resumo:", e);
                 }
             }
-        }
+        });
+
+        await Promise.all(summaryPromises);
     }
 
     logWithTime(">>> ATUALIZAÇÃO GLOBAL DE RANKINGS CONCLUÍDA.");
