@@ -22,21 +22,46 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
             all: 'COMPLETA'
         };
 
-        if (!confirm(`Deseja iniciar a sincronização ${labels[type]} agora?`)) return;
+        if (!confirm(`Deseja iniciar a sincronização ${labels[type]} agora? Esta operação pode levar alguns minutos devido ao processamento por etapas.`)) return;
 
         setLoading(type);
         try {
-            const endpoint = `/api/sync-${type}`;
-            const res = await fetch(endpoint);
-            const data = await res.json();
+            const executeStep = async (endpoint: string, stepLabel?: string) => {
+                const res = await fetch(endpoint);
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || `Falha no passo ${stepLabel || ''}`);
+                }
+                return data;
+            };
 
-            if (data.success) {
-                alert(`Sincronização ${labels[type]} finalizada com sucesso!`);
+            if (type === 'ranking') {
+                // Cadeia de Ranking (6 passos)
+                const steps = ['math', 'ai-block-0', 'ai-block-1', 'ai-block-2', 'ai-block-3', 'summary'];
+                for (const step of steps) {
+                    await executeStep(`/api/sync-ranking?step=${step}&silent=true`, step);
+                }
+                alert(`Sincronização RANKING (Etapas Concluídas) finalizada com sucesso!`);
+            } else if (type === 'all') {
+                // Cadeia Completa
+                await executeStep('/api/sync-ima');
+                await executeStep('/api/sync-weather');
+                await executeStep('/api/sync-marine');
+                
+                // Seguido da cadeia de ranking
+                const rankingSteps = ['math', 'ai-block-0', 'ai-block-1', 'ai-block-2', 'ai-block-3', 'summary'];
+                for (const step of rankingSteps) {
+                    await executeStep(`/api/sync-ranking?step=${step}&silent=true`, step);
+                }
+                alert(`Sincronização COMPLETA finalizada com sucesso!`);
             } else {
-                alert(`Erro: ${data.error || 'Falha desconhecida'}`);
+                // Sincronizações Simples
+                await executeStep(`/api/sync-${type}`);
+                alert(`Sincronização ${labels[type]} finalizada com sucesso!`);
             }
         } catch (error: any) {
-            alert(`Falha na requisição: ${error.message}`);
+            console.error(error);
+            alert(`Falha na sincronização: ${error.message}`);
         } finally {
             setLoading(null);
             router.refresh();

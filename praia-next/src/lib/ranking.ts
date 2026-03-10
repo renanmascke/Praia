@@ -229,120 +229,142 @@ async function runInChunks<T, R>(items: T[], chunkSize: number, callback: (item:
     return results;
 }
 
-export async function triggerGlobalRankingUpdate(logId?: string) {
-    logWithTime(">>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS (SUPER PARALLEL + THROTTLED)...");
+export async function triggerGlobalRankingUpdate(logId?: string, step?: string) {
+    const stepLabel = step ? `[STEP: ${step}]` : "(LEGACY ALL-IN-ONE)";
+    logWithTime(`>>> DISPARANDO ATUALIZAÇÃO GLOBAL DE RANKINGS ${stepLabel}...`);
+    
     const { getBrazilToday } = await import('./date-utils');
     const cities = await prisma.city.findMany();
 
     const datesToRank = [getBrazilToday()];
     for (let i = 1; i <= 7; i++) {
         const d = new Date(datesToRank[0]);
-        // Usar setUTCDate para garantir que o incremento não mude o fuso horário
         d.setUTCDate(d.getUTCDate() + i);
         datesToRank.push(d);
     }
 
+    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
     for (const city of cities) {
-        logWithTime(`>>> PROCESSANDO CIDADE: ${city.name}`);
+        logWithTime(`>>> [CITY: ${city.name}] Processando etapa: ${step || 'full'}`);
         const beaches = await prisma.beach.findMany({ where: { cityId: city.id } });
 
-        // ETAPA 1: Cálculos Matemáticos (Chunked de 2 em 2 dias para não estourar pool de 5 conexões)
-        logWithTime(`>>> [CITY: ${city.name}] Etapa 1: Cálculos matemáticos (chunk size: 2)...`);
-        await runInChunks(datesToRank, 2, (date) => generateDailyRankings(city.id, date, logId));
-
-        // ETAPA 2: IA em Lotes (Esses são apenas 2 lotes e passam a maior parte do tempo fora do DB, podem ser paralelos)
-        const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-        if (geminiKey) {
-            logWithTime(`>>> [CITY: ${city.name}] Etapa 2: Solicitando lotes Gemini em paralelo...`);
-            const batches = [datesToRank.slice(0, 4), datesToRank.slice(4, 8)];
-
-            const aiBatchPromises = batches.map(async (batchDates, bIdx) => {
-                const batchDataForAi: any[] = [];
-                for (const date of batchDates) {
-                    const dailyBeaches = await prepareBeachDataForAi(city.id, date, beaches);
-                    batchDataForAi.push({
-                        date: date.toISOString().split('T')[0],
-                        beaches: dailyBeaches
-                    });
-                }
-
-                try {
-                    const { generateMultiDayRanking } = await import('./gemini');
-                    const aiResults = await generateMultiDayRanking(city.name, batchDataForAi);
-                    await applyAiRankingBatch(city.id, aiResults);
-                    logWithTime(`>>> [CITY: ${city.name}] Lote IA ${bIdx + 1} concluído.`);
-                } catch (error: any) {
-                    console.error(`>>> ERRO NO LOTE IA ${bIdx + 1}:`, error.message);
-                }
-            });
-
-            await Promise.all(aiBatchPromises);
+        // ETAPA: CÁLCULO MATEMÁTICO (Base)
+        if (!step || step === 'math') {
+            logWithTime(`>>> [CITY: ${city.name}] Executando cálculos matemáticos...`);
+            await runInChunks(datesToRank, 2, (date) => generateDailyRankings(city.id, date, logId));
         }
 
-        // ETAPA 3: Reordenação de Posições (Após IA ter mudado os scores)
-        logWithTime(`>>> [CITY: ${city.name}] Etapa 3: Reordenando posições pós-IA...`);
-        const reorderPromises = datesToRank.map(date => reorderCityRankings(city.id, date));
-        await Promise.all(reorderPromises);
+        // ETAPAS: LOTES DE IA (2 dias por vez)
+        if (!step || step.startsWith('ai-block-')) {
+            if (geminiKey) {
+                const blockIdx = step ? parseInt(step.replace('ai-block-', '')) : -1;
+                
+                // Definir quais blocos processar
+                const allBlocks = [
+                    datesToRank.slice(0, 2),
+                    datesToRank.slice(2, 4),
+                    datesToRank.slice(4, 6),
+                    datesToRank.slice(6, 8)
+                ];
 
-        // ETAPA 4: Resumos Diários (Chunked de 2 em 2 dias)
-        logWithTime(`>>> [CITY: ${city.name}] Etapa 4: Gerando resumos diários (chunk size: 2)...`);
-        await runInChunks(datesToRank, 2, async (date) => {
-            const sortedRankings = await prisma.beachRanking.findMany({
-                where: { beachId: { in: beaches.map(b => b.id) }, date },
-                orderBy: { score: 'desc' },
-                take: 5
-            });
+                const blocksToProcess = blockIdx === -1 ? allBlocks : [allBlocks[blockIdx]];
 
-            const forecasts = await prisma.weatherForecast.findMany({
-                where: { anchorId: { in: beaches.map(b => b.anchorId).filter(id => !!id) as string[] }, date }
-            });
+                for (let bIdx = 0; bIdx < blocksToProcess.length; bIdx++) {
+                    const batchDates = blocksToProcess[bIdx];
+                    if (!batchDates || batchDates.length === 0) continue;
 
-            if (forecasts.length > 0) {
-                try {
-                    const { generateCityDailySummary } = await import('./gemini');
-                    const weatherSummary = forecasts.map(f => {
-                        const hours = (f.hourlyData as any[]) || [];
-                        const getP = (s: number, e: number) => {
-                            const p = hours.filter(h => h.time >= s && h.time <= e);
-                            if (p.length === 0) return { condition: f.condition, rainChance: f.rainChance || 0, windSpeed: 0, windDir: f.windDir };
-                            return {
-                                condition: p[Math.floor(p.length/2)].condition,
-                                rainChance: Math.max(...p.map(h => h.rainChance || 0)),
-                                windSpeed: p.reduce((acc, h) => acc + (h.windSpeed || 0), 0) / p.length,
-                                windDir: p[Math.floor(p.length/2)].windDir
-                            };
-                        };
-                        return {
-                            anchorName: f.anchorId,
-                            dailyMax: f.tempMax,
-                            periods: {
-                                morning: getP(6, 11),
-                                afternoon: getP(12, 17),
-                                night: getP(18, 23)
-                            }
-                        };
-                    });
-
-                    const topRankings = sortedRankings.map(r => ({
-                        beachId: r.beachId,
-                        score: r.score,
-                        commentary: r.aiCommentary
-                    }));
-
-                    const summaryContent = await generateCityDailySummary(city.name, weatherSummary, topRankings);
-                    if (summaryContent) {
-                        await (prisma as any).cityDailySummary.upsert({
-                            where: { cityId_date: { cityId: city.id, date } },
-                            update: { content: summaryContent },
-                            create: { cityId: city.id, date, content: summaryContent }
+                    const effectiveIdx = blockIdx === -1 ? bIdx : blockIdx;
+                    logWithTime(`>>> [CITY: ${city.name}] Solicitando Lote IA ${effectiveIdx + 1} (${batchDates.length} dias)...`);
+                    
+                    const batchDataForAi: any[] = [];
+                    for (const date of batchDates) {
+                        const dailyBeaches = await prepareBeachDataForAi(city.id, date, beaches);
+                        batchDataForAi.push({
+                            date: date.toISOString().split('T')[0],
+                            beaches: dailyBeaches
                         });
                     }
-                } catch (e) {
-                    console.error("Erro no resumo:", e);
+
+                    try {
+                        const { generateMultiDayRanking } = await import('./gemini');
+                        const aiResults = await generateMultiDayRanking(city.name, batchDataForAi);
+                        await applyAiRankingBatch(city.id, aiResults);
+                        
+                        // Reordenar imediatamente após a IA desse bloco
+                        for (const date of batchDates) {
+                            await reorderCityRankings(city.id, date);
+                        }
+                        
+                        logWithTime(`>>> [CITY: ${city.name}] Lote IA ${effectiveIdx + 1} e Reordenação concluídos.`);
+                    } catch (error: any) {
+                        console.error(`>>> ERRO NO LOTE IA ${effectiveIdx + 1}:`, error.message);
+                    }
                 }
             }
-        });
+        }
+
+        // ETAPA: RESUMOS DIÁRIOS (Boletins)
+        if (!step || step === 'summary') {
+            logWithTime(`>>> [CITY: ${city.name}] Gerando resumos diários finais...`);
+            await runInChunks(datesToRank, 2, async (date) => {
+                const sortedRankings = await prisma.beachRanking.findMany({
+                    where: { beachId: { in: beaches.map(b => b.id) }, date },
+                    orderBy: { score: 'desc' },
+                    take: 5
+                });
+
+                const forecasts = await prisma.weatherForecast.findMany({
+                    where: { anchorId: { in: beaches.map(b => b.anchorId).filter(id => !!id) as string[] }, date }
+                });
+
+                if (forecasts.length > 0) {
+                    try {
+                        const { generateCityDailySummary } = await import('./gemini');
+                        const weatherSummary = forecasts.map(f => {
+                            const hours = (f.hourlyData as any[]) || [];
+                            const getP = (s: number, e: number) => {
+                                const p = hours.filter(h => h.time >= s && h.time <= e);
+                                if (p.length === 0) return { condition: f.condition, rainChance: f.rainChance || 0, windSpeed: 0, windDir: f.windDir };
+                                return {
+                                    condition: p[Math.floor(p.length/2)].condition,
+                                    rainChance: Math.max(...p.map(h => h.rainChance || 0)),
+                                    windSpeed: p.reduce((acc, h) => acc + (h.windSpeed || 0), 0) / p.length,
+                                    windDir: p[Math.floor(p.length/2)].windDir
+                                };
+                            };
+                            return {
+                                anchorName: f.anchorId,
+                                dailyMax: f.tempMax,
+                                periods: {
+                                    morning: getP(6, 11),
+                                    afternoon: getP(12, 17),
+                                    night: getP(18, 23)
+                                }
+                            };
+                        });
+
+                        const topRankings = sortedRankings.map(r => ({
+                            beachId: r.beachId,
+                            score: r.score,
+                            commentary: r.aiCommentary
+                        }));
+
+                        const summaryContent = await generateCityDailySummary(city.name, weatherSummary, topRankings);
+                        if (summaryContent) {
+                            await (prisma as any).cityDailySummary.upsert({
+                                where: { cityId_date: { cityId: city.id, date } },
+                                update: { content: summaryContent },
+                                create: { cityId: city.id, date, content: summaryContent }
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Erro no resumo:", e);
+                    }
+                }
+            });
+        }
     }
 
-    logWithTime(">>> ATUALIZAÇÃO GLOBAL DE RANKINGS CONCLUÍDA.");
+    logWithTime(`>>> ATUALIZAÇÃO GLOBAL DE RANKINGS ${stepLabel} CONCLUÍDA.`);
 }
