@@ -24,16 +24,37 @@ export default async function AdminSyncLogsPage({
 
     const [logs, total, quotas, history, monthlyQuota]: [any[], any, any, any, any] = await Promise.all([
         (prisma as any).$queryRawUnsafe(`
-            SELECT sl.*, 
-                   (SELECT COUNT(*) FROM SyncStepLog WHERE logId = sl.id) as stepCount
+            SELECT 
+                COALESCE(sl.runId, sl.id) as executionId,
+                MIN(sl.startTime) as startTime,
+                MAX(sl.endTime) as endTime,
+                GROUP_CONCAT(DISTINCT sl.type) as types,
+                GROUP_CONCAT(DISTINCT sl.status) as statuses,
+                COUNT(*) as stepCount,
+                SUM((SELECT COUNT(*) FROM SyncStepLog WHERE logId = sl.id)) as detailCount,
+                /* Pegamos a mensagem do último registro se for um grupo */
+                (SELECT message FROM SyncLog WHERE (runId = sl.runId OR id = sl.id) ORDER BY startTime DESC LIMIT 1) as lastMessage,
+                /* JSON data para o frontend abrir os detalhes */
+                JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'id', sl.id,
+                        'type', sl.type,
+                        'startTime', sl.startTime,
+                        'endTime', sl.endTime,
+                        'status', sl.status,
+                        'message', sl.message,
+                        'stepCount', (SELECT COUNT(*) FROM SyncStepLog WHERE logId = sl.id)
+                    )
+                ) as stepsJson
             FROM SyncLog sl
-            ${search ? `WHERE sl.type LIKE '%${search}%' OR sl.status LIKE '%${search}%' OR sl.message LIKE '%${search}%'` : ''}
-            ORDER BY sl.startTime DESC 
+            ${search ? `WHERE sl.type LIKE '%${search}%' OR sl.status LIKE '%${search}%' OR sl.message LIKE '%${search}%' OR sl.runId LIKE '%${search}%'` : ''}
+            GROUP BY executionId
+            ORDER BY startTime DESC 
             LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
         `),
         (prisma as any).$queryRawUnsafe(`
-            SELECT COUNT(*) as count FROM SyncLog
-            ${search ? `WHERE type LIKE '%${search}%' OR status LIKE '%${search}%' OR message LIKE '%${search}%'` : ''}
+            SELECT COUNT(DISTINCT COALESCE(runId, id)) as count FROM SyncLog
+            ${search ? `WHERE type LIKE '%${search}%' OR status LIKE '%${search}%' OR message LIKE '%${search}%' OR runId LIKE '%${search}%'` : ''}
         `).then((res: any) => Number(res[0].count)),
         (prisma as any).apiQuota.findMany({
             where: { date: today }

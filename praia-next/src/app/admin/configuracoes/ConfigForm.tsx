@@ -48,24 +48,24 @@ export default function ConfigForm({ initialConfigs }: { initialConfigs: Config[
 
             <div className="grid gap-6">
                 {configs.map(config => (
-                    <div key={config.key} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+                    <div key={config.key} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:border-sky-300 transition-colors space-y-4 group">
                         <div className="flex justify-between items-start">
                             <div>
-                                <h3 className="text-slate-900 font-black uppercase tracking-tighter text-sm">
+                                <h3 className="text-slate-800 font-black uppercase tracking-tight text-sm">
                                     {config.key.replace(/_/g, ' ')}
                                 </h3>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                                    {config.description || 'Configuração do sistema'}
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">
+                                    {config.description || 'Parâmetro do sistema'}
                                 </p>
                             </div>
                         </div>
 
-                        <div className="relative">
+                        <div className="relative group-focus-within:ring-2 group-focus-within:ring-sky-500/20 rounded-xl transition-all">
                             <input
                                 type="number"
                                 value={config.value}
                                 onChange={(e) => handleChange(config.key, e.target.value)}
-                                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-slate-900 font-bold focus:ring-2 focus:ring-sky-500 transition-all outline-none"
+                                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-slate-900 font-bold focus:bg-white focus:border-sky-300 transition-all outline-none"
                                 min="1"
                                 max="16"
                                 required
@@ -81,9 +81,18 @@ export default function ConfigForm({ initialConfigs }: { initialConfigs: Config[
             <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-slate-900 text-white rounded-[1.5rem] py-4 font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-slate-900 text-white rounded-xl py-3.5 font-black uppercase tracking-widest hover:bg-sky-600 transition-all shadow-lg shadow-slate-200 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             >
-                {loading ? 'Salvando...' : 'Salvar Alterações'}
+                {loading ? (
+                    <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        Salvando...
+                    </>
+                ) : (
+                    <>
+                        <span>💾</span> Salvar Alterações
+                    </>
+                )}
             </button>
         </form>
     );

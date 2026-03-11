@@ -41,7 +41,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     <Link href="/admin/usuarios" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
                         🛡️ Administradores
                     </Link>
-                    <Link href="/admin/configuracoes" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide border-t border-slate-800 mt-2 pt-4">
+                    <Link href="/admin/configuracoes" className="block px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-colors text-sm font-semibold tracking-wide">
                         ⚙️ Configurações
                     </Link>
                 </nav>
