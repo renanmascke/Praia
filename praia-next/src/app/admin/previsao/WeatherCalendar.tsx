@@ -25,6 +25,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import SearchableSelect from '@/components/admin/SearchableSelect';
+import { renderBoldText } from '@/lib/ui-utils';
 
 interface HourlyForecastEntry {
     time: string;
@@ -540,7 +541,7 @@ export default function WeatherCalendar({
                                                         <div className="h-4 w-48 bg-slate-200 animate-pulse rounded mt-2"></div>
                                                     ) : daySummary ? (
                                                         <div className="text-slate-600 text-sm font-medium leading-relaxed">
-                                                            {daySummary}
+                                                            {renderBoldText(daySummary)}
                                                         </div>
                                                     ) : (
                                                         <p className="text-slate-400 text-xs italic">Nenhuma análise disponível para este dia.</p>

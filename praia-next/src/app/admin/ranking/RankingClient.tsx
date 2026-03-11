@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { formatRegionLocale } from '@/lib/formatters';
+import { renderBoldText } from '@/lib/ui-utils';
 
 interface RankingItem {
     id: string;
@@ -103,7 +104,7 @@ export default function RankingClient({ initialCities, initialAnchors }: { initi
                         <div className="space-y-1 flex-1">
                             <h2 className="text-slate-800 font-black uppercase tracking-widest text-[10px]">Análise do Especialista Local</h2>
                             <div className="text-slate-600 text-sm font-medium leading-relaxed">
-                                {citySummary}
+                                {renderBoldText(citySummary)}
                             </div>
                         </div>
                     </div>
@@ -160,7 +161,7 @@ export default function RankingClient({ initialCities, initialAnchors }: { initi
                                         {item.aiCommentary && (
                                             <div className="mt-2 bg-blue-50/50 p-2.5 rounded-xl border border-blue-100/50">
                                                 <p className="text-[11px] text-blue-700/80 font-medium italic leading-relaxed">
-                                                    "{item.aiCommentary}"
+                                                    "{renderBoldText(item.aiCommentary)}"
                                                 </p>
                                             </div>
                                         )}
