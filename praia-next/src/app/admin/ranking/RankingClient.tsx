@@ -94,15 +94,15 @@ export default function RankingClient({ initialCities, initialAnchors }: { initi
 
             {/* Resumo da Cidade */}
             {citySummary && (
-                <div className="bg-blue-600 rounded-3xl p-6 shadow-lg shadow-blue-500/20 border border-blue-400 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl transition-all group-hover:bg-white/20"></div>
+                <div className="bg-slate-50 rounded-3xl p-6 shadow-sm border border-slate-200 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-slate-200/50 rounded-full -mr-16 -mt-16 blur-3xl transition-all group-hover:bg-slate-200/80"></div>
                     <div className="relative flex gap-4 items-start">
-                        <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                        <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm transition-transform group-hover:scale-105">
                             <span className="text-2xl">✨</span>
                         </div>
-                        <div className="space-y-1">
-                            <h2 className="text-white font-black uppercase tracking-widest text-[10px]">Análise do Especialista Local</h2>
-                            <div className="text-blue-50 text-sm font-medium leading-relaxed max-w-4xl prose prose-invert">
+                        <div className="space-y-1 flex-1">
+                            <h2 className="text-slate-800 font-black uppercase tracking-widest text-[10px]">Análise do Especialista Local</h2>
+                            <div className="text-slate-600 text-sm font-medium leading-relaxed">
                                 {citySummary}
                             </div>
                         </div>

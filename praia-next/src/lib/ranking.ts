@@ -1,6 +1,7 @@
 import prisma from './prisma';
 import { beachWhitelist } from './data';
 import { addSyncStep } from './sync-logger';
+import { getSystemConfig } from './system-config';
 
 function logWithTime(msg: string) {
     const now = new Date();
@@ -8,13 +9,29 @@ function logWithTime(msg: string) {
     console.log(`[${time}] ${msg}`);
 }
 
-export const RANKING_STEPS = ['math', 'ai-block-0', 'ai-block-1', 'ai-block-2', 'ai-block-3', 'summary'];
-export const GLOBAL_STEPS = ['ima', 'weather', 'marine', ...RANKING_STEPS];
+export async function getRankingSteps() {
+    const syncDaysStr = await getSystemConfig('RANKING_SYNC_DAYS', '4');
+    const syncDays = parseInt(syncDaysStr) || 4;
+    const aiBlocksCount = Math.ceil(syncDays / 2); // 2 dias por bloco
+    
+    const steps = ['math'];
+    for (let i = 0; i < aiBlocksCount; i++) {
+        steps.push(`ai-block-${i}`);
+    }
+    steps.push('summary');
+    return steps;
+}
+
+export async function getGlobalSteps() {
+    const rankingSteps = await getRankingSteps();
+    return ['ima', 'weather', 'marine', ...rankingSteps];
+}
 
 /**
  * Detecta qual o próximo passo pendente para um runId
  */
 export async function getNextPendingStep(runId: string, pipeline: string[]) {
+    // Nota: 'pipeline' agora deve ser passado já resolvido (fetch dinâmico se necessário no chamador)
     const logs = await prisma.syncLog.findMany({
         where: { runId, status: 'SUCCESS' },
         select: { message: true }
@@ -257,8 +274,11 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
     const { getBrazilToday } = await import('./date-utils');
     const cities = await prisma.city.findMany();
 
+    const syncDaysStr = await getSystemConfig('RANKING_SYNC_DAYS', '4');
+    const syncDays = parseInt(syncDaysStr) || 4;
+
     const datesToRank = [getBrazilToday()];
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 1; i < syncDays; i++) {
         const d = new Date(datesToRank[0]);
         d.setUTCDate(d.getUTCDate() + i);
         datesToRank.push(d);
@@ -282,13 +302,11 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
             if (geminiKey) {
                 const blockIdx = step ? parseInt(step.replace('ai-block-', '')) : -1;
                 
-                // Definir quais blocos processar
-                const allBlocks = [
-                    datesToRank.slice(0, 2),
-                    datesToRank.slice(2, 4),
-                    datesToRank.slice(4, 6),
-                    datesToRank.slice(6, 8)
-                ];
+                // Agrupar datas em blocos de 2 para processamento pela IA
+                const allBlocks: Date[][] = [];
+                for (let i = 0; i < datesToRank.length; i += 2) {
+                    allBlocks.push(datesToRank.slice(i, i + 2));
+                }
 
                 const blocksToProcess = blockIdx === -1 ? allBlocks : [allBlocks[blockIdx]];
 

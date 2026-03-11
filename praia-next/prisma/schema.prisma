@@ -130,6 +130,7 @@ model WeatherForecast {
   windDir     String
   windSpeed   Float
   hourlyData  Json?
+  icon        String?
   anchor      ForecastAnchor @relation(fields: [anchorId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
@@ -192,4 +193,11 @@ model AiLog {
   response  String   @db.LongText
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
+}
+
+model SystemConfig {
+  key         String   @id
+  value       String   @db.Text
+  description String?  @db.Text
+  updatedAt   DateTime @updatedAt
 }

@@ -4,13 +4,17 @@ import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-import { GLOBAL_STEPS, getNextPendingStep } from '@/lib/ranking';
+import { getGlobalSteps, getNextPendingStep } from '@/lib/ranking';
 import { runImaSync } from '../sync-ima/route';
 import { runWeatherSync } from '../sync-weather/route';
 import { runMarineSync } from '../sync-marine/route';
 import { runRankingSync } from '../sync-ranking/route';
+import { initDefaultConfigs } from '@/lib/system-config';
 
 export async function GET(request: Request) {
+    // Garantir que configurações básicas existam
+    await initDefaultConfigs();
+
     const { searchParams } = new URL(request.url);
     const authHeader = request.headers.get('authorization');
     const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
@@ -41,7 +45,8 @@ export async function GET(request: Request) {
 
     try {
         // 3. Detectar qual o próximo passo na "Esteira Global"
-        const nextStep = await getNextPendingStep(actualRunId, GLOBAL_STEPS);
+        const globalSteps = await getGlobalSteps();
+        const nextStep = await getNextPendingStep(actualRunId, globalSteps);
         
         if (!nextStep) {
             return NextResponse.json({ 
@@ -71,7 +76,7 @@ export async function GET(request: Request) {
         return NextResponse.json({
             ...result,
             finished: false, // O despachante 'all' só termina quando nextStep for null
-            nextStep: GLOBAL_STEPS[GLOBAL_STEPS.indexOf(nextStep) + 1] || null,
+            nextStep: globalSteps[globalSteps.indexOf(nextStep) + 1] || null,
             runId: actualRunId
         });
 

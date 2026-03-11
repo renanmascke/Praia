@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     format,
     startOfMonth,
@@ -46,6 +46,7 @@ interface WeatherForecast {
     rainChance: number;
     rainAmount: number;
     windDir: string;
+    icon?: string | null;
     hourlyData: any;
 }
 
@@ -70,6 +71,9 @@ export default function WeatherCalendar({
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<'month' | 'week' | 'day'>('month');
     const [selectedDay, setSelectedDay] = useState<WeatherForecast | null>(null);
+    const [daySummary, setDaySummary] = useState<string | null>(null);
+    const [dayRankings, setDayRankings] = useState<any[]>([]);
+    const [detailsLoading, setDetailsLoading] = useState(false);
 
     const currentAnchor = anchors.find(a => a.id === currentAnchorId);
 
@@ -145,6 +149,30 @@ export default function WeatherCalendar({
     const selectedCity = currentAnchor?.cityId || '';
     const anchorOptions = cityAnchors.map(a => ({ id: a.id, name: a.name }));
     const selectedAnchor = currentAnchorId;
+
+    const fetchDayDetails = async (date: Date, cityId: string) => {
+        if (!cityId) return;
+        setDetailsLoading(true);
+        try {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const res = await fetch(`/api/rankings?cityId=${cityId}&date=${dateStr}`);
+            const data = await res.json();
+            if (data.success) {
+                setDaySummary(data.summary);
+                setDayRankings(data.data.slice(0, 3)); // Pegar apenas as 3 primeiras
+            }
+        } catch (error) {
+            console.error("Erro ao buscar detalhes do dia:", error);
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (view === 'day' && selectedCity) {
+            fetchDayDetails(currentDate, selectedCity);
+        }
+    }, [view, currentDate, selectedCity]);
 
     return (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-md overflow-hidden h-full flex flex-col">
@@ -261,14 +289,26 @@ export default function WeatherCalendar({
                             const isOutside = !isSameMonth(day, monthStart);
                             const isCurrentDay = isToday(day);
 
-                            let dayIcon = null;
+                            let dayIcon = forecast?.icon || null;
                             let dayWindCode = null;
                             if (forecast) {
                                 const arr = Array.isArray(forecast.hourlyData) ? forecast.hourlyData :
                                     (typeof forecast.hourlyData === 'object' ? Object.values(forecast.hourlyData as any)[0] : []) as HourlyForecastEntry[];
-                                const midday = (arr as any[]).find((h: any) => h.time?.includes('12:00')) || (arr as any[])[0];
-                                dayIcon = midday?.icon;
+                                
+                                const midday = arr.find((h: any) => h.time?.includes('12:00')) || arr[0];
                                 dayWindCode = midday?.windDir;
+
+                                // Fallback para registros antigos sem ícone persistido
+                                if (!dayIcon) {
+                                    const hourlyWithRain = arr.find((h: any) => 
+                                        h.conditionText?.toLowerCase().includes('chuva') || 
+                                        h.conditionText?.toLowerCase().includes('aguaceiro') ||
+                                        h.conditionText?.toLowerCase().includes('garoa')
+                                    );
+                                    dayIcon = (forecast.rainChance > 50 || forecast.rainAmount > 2)
+                                        ? (hourlyWithRain?.icon || midday?.icon)
+                                        : midday?.icon;
+                                }
                             }
                             const dayWindInfo = forecast ? formatWind(dayWindCode) : null;
 
@@ -425,10 +465,23 @@ export default function WeatherCalendar({
                                 <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="grid grid-cols-4 gap-4">
                                         <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 col-span-2">
-                                            <div className="bg-blue-50 p-3 rounded-2xl">
-                                                {arr[12]?.icon ? (
-                                                    <img src={arr[12].icon} className="w-16 h-16 object-contain drop-shadow-md" alt="main" />
-                                                ) : <span className="text-5xl">🌤️</span>}
+                                            <div className="bg-blue-50 p-3 rounded-2xl relative">
+                                                {(() => {
+                                                    const displayIcon = forecast.icon || (() => {
+                                                        const hourlyWithRain = arr.find((h: any) => 
+                                                            h.conditionText?.toLowerCase().includes('chuva') || 
+                                                            h.conditionText?.toLowerCase().includes('aguaceiro') ||
+                                                            h.conditionText?.toLowerCase().includes('garoa')
+                                                        );
+                                                        return (forecast.rainChance > 50 || forecast.rainAmount > 2) 
+                                                            ? (hourlyWithRain?.icon || arr[12]?.icon || '🌧️')
+                                                            : (arr[12]?.icon || '🌤️');
+                                                    })();
+
+                                                    return typeof displayIcon === 'string' && displayIcon.startsWith('http') ? (
+                                                        <img src={displayIcon} className="w-16 h-16 object-contain drop-shadow-md" alt="main" />
+                                                    ) : <span className="text-5xl">{displayIcon}</span>;
+                                                })()}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-0.5">
@@ -470,6 +523,58 @@ export default function WeatherCalendar({
                                                     </div>
                                                 );
                                             })()}
+                                        </div>
+                                    </div>
+
+                                    {/* Dica da IA e Top 3 Praias */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="md:col-span-2 bg-slate-50 rounded-[2rem] p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-slate-200/50 rounded-full -mr-16 -mt-16 blur-3xl transition-all group-hover:bg-slate-200/80"></div>
+                                            <div className="relative flex gap-4 items-start">
+                                                <div className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm">
+                                                    <span className="text-xl">✨</span>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <h4 className="text-slate-800 font-black uppercase tracking-widest text-[10px]">Dica do Especialista Local</h4>
+                                                    {detailsLoading ? (
+                                                        <div className="h-4 w-48 bg-slate-200 animate-pulse rounded mt-2"></div>
+                                                    ) : daySummary ? (
+                                                        <div className="text-slate-600 text-sm font-medium leading-relaxed">
+                                                            {daySummary}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-slate-400 text-xs italic">Nenhuma análise disponível para este dia.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+                                            <h4 className="text-slate-800 font-black uppercase tracking-widest text-[10px] mb-4 flex items-center gap-2">
+                                                <span className="text-orange-500">🏆</span> Principais Praias
+                                            </h4>
+                                            <div className="space-y-3">
+                                                {detailsLoading ? (
+                                                    [1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-50 animate-pulse rounded-xl"></div>)
+                                                ) : dayRankings.length > 0 ? (
+                                                    dayRankings.map((rk, idx) => (
+                                                        <div key={rk.id} className="flex items-center gap-3 bg-slate-50/50 p-2 rounded-xl border border-slate-100/50 group hover:bg-white transition-all">
+                                                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs ${
+                                                                idx === 0 ? 'bg-orange-500 text-white shadow-md shadow-orange-200' :
+                                                                idx === 1 ? 'bg-slate-300 text-slate-600' : 'bg-amber-600/20 text-amber-700'
+                                                            }`}>
+                                                                {idx + 1}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-xs font-bold text-slate-700 truncate uppercase">{rk.beach.name}</p>
+                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter truncate">{rk.score}% de Indicação</p>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-slate-400 text-[10px] italic text-center py-4">Sem ranking disponível.</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 

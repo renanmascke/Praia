@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { sendAdminNotification } from '@/lib/telegram-admin';
-import { RANKING_STEPS, getNextPendingStep, triggerGlobalRankingUpdate } from '@/lib/ranking';
+import { getRankingSteps, getNextPendingStep, triggerGlobalRankingUpdate } from '@/lib/ranking';
 
 export async function runRankingSync(silent: boolean = false, step?: string, runId?: string) {
     const actualRunId = runId || crypto.randomUUID();
     
     // Autodetectar passo se não for fornecido explicitamente
+    const rankingSteps = await getRankingSteps();
     let actualStep = step;
     if (!actualStep) {
-        actualStep = (await getNextPendingStep(actualRunId, RANKING_STEPS)) || undefined;
+        actualStep = (await getNextPendingStep(actualRunId, rankingSteps)) || undefined;
         if (!actualStep) {
             return { success: true, finished: true, message: 'Ranking já está completo para este RunId.' };
         }
@@ -51,7 +52,7 @@ export async function runRankingSync(silent: boolean = false, step?: string, run
         return { 
             success: true, 
             finished: actualStep === 'summary', 
-            nextStep: RANKING_STEPS[RANKING_STEPS.indexOf(actualStep) + 1] || null,
+            nextStep: rankingSteps[rankingSteps.indexOf(actualStep) + 1] || null,
             stepLabels: { current: actualStep },
             runId: actualRunId 
         };

@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { sendAdminNotification } from '@/lib/telegram-admin';
 import { getBrazilToday } from '@/lib/date-utils';
 import { generateDailyRankings } from '@/lib/ranking';
+import { getSystemConfig } from '@/lib/system-config';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -65,10 +66,14 @@ export async function runWeatherSync(silent: boolean = false, runId?: string) {
         return { success: false, error: "Outra sincronização de Clima já está em andamento." };
     }
 
+    // Pegar horizonte de dias configurado
+    const syncDaysStr = await getSystemConfig('WEATHER_SYNC_DAYS', '8');
+    const syncDays = parseInt(syncDaysStr) || 8;
+
     // Criar Log de Início
     await (prisma as any).$executeRawUnsafe(`
-        INSERT INTO SyncLog (id, type, startTime, status, message, createdAt)
-        VALUES ('${logId}', 'WEATHER', NOW(), 'RUNNING', 'Iniciando sincronização de Clima (WeatherAPI)...', NOW())
+        INSERT INTO SyncLog (id, type, startTime, status, message, createdAt, runId)
+        VALUES ('${logId}', 'WEATHER', NOW(), 'RUNNING', 'Iniciando sincronização de Clima (WeatherAPI) para ${syncDays} dias...', NOW(), '${actualRunId}')
     `);
 
     try {
@@ -78,9 +83,11 @@ export async function runWeatherSync(silent: boolean = false, runId?: string) {
         let totalInserted = 0;
         let weatherCalls = 0;
 
+        console.log(`>>> Sincronizando Clima para HOJE + ${syncDays - 1} dias.`);
+
         for (const anchor of anchors) {
             if (await checkAndIncrementQuota('WEATHERAPI', WEATHERAPI_MONTHLY_LIMIT)) {
-                const weatherUrl = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${anchor.latitude},${anchor.longitude}&days=8&aqi=no&alerts=no&lang=pt`;
+                const weatherUrl = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${anchor.latitude},${anchor.longitude}&days=${syncDays}&aqi=no&alerts=no&lang=pt`;
                 const res = await fetch(weatherUrl);
 
                 if (res.ok) {
@@ -111,6 +118,24 @@ export async function runWeatherSync(silent: boolean = false, runId?: string) {
                                 };
                             });
 
+                            // Escolha do ícone inteligente para persistência
+                            const rainChance = day.day.daily_chance_of_rain;
+                            const rainAmount = day.day.totalprecip_mm;
+                            const hourlyWithRain = day.hour.find((h: any) =>
+                                h.condition.text.toLowerCase().includes('chuva') ||
+                                h.condition.text.toLowerCase().includes('aguaceiro') ||
+                                h.condition.text.toLowerCase().includes('garoa')
+                            );
+
+                            const middayIcon = day.hour[12]?.condition.icon || day.day.condition.icon;
+                            let selectedIcon = (rainChance > 50 || rainAmount > 2)
+                                ? (hourlyWithRain?.condition.icon || middayIcon)
+                                : middayIcon;
+
+                            if (selectedIcon?.startsWith('//')) {
+                                selectedIcon = `https:${selectedIcon}`;
+                            }
+
                             await prisma.weatherForecast.upsert({
                                 where: { anchorId_date: { anchorId: anchor.id, date: targetDate } },
                                 update: {
@@ -121,7 +146,8 @@ export async function runWeatherSync(silent: boolean = false, runId?: string) {
                                     rainAmount: day.day.totalprecip_mm,
                                     windDir: day.hour[12]?.wind_dir || 'NE',
                                     windSpeed: day.day.maxwind_kph,
-                                    hourlyData: hourlyDataPoints
+                                    hourlyData: hourlyDataPoints,
+                                    icon: selectedIcon
                                 },
                                 create: {
                                     anchorId: anchor.id,
@@ -133,7 +159,8 @@ export async function runWeatherSync(silent: boolean = false, runId?: string) {
                                     rainAmount: day.day.totalprecip_mm,
                                     windDir: day.hour[12]?.wind_dir || 'NE',
                                     windSpeed: day.day.maxwind_kph,
-                                    hourlyData: hourlyDataPoints
+                                    hourlyData: hourlyDataPoints,
+                                    icon: selectedIcon
                                 }
                             });
                             totalInserted++;
@@ -143,7 +170,7 @@ export async function runWeatherSync(silent: boolean = false, runId?: string) {
             }
         }
 
-        const finalMessage = `Sucesso: [STEP: weather] concluído. (${weatherCalls} chamadas WeatherAPI).`;
+        const finalMessage = `Sucesso: [STEP: weather] concluído. (${weatherCalls} chamadas WeatherAPI para ${syncDays} dias).`;
 
         // Log final no banco
         await (prisma as any).$executeRawUnsafe(`
