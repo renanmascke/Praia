@@ -74,6 +74,15 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
         ]
     };
 
+    // Cálculo de Escalas Dinâmicas
+    const maxWindFound = Math.max(...hourlyData.map(h => h.wind), 0);
+    const maxRainFound = Math.max(...hourlyData.map(h => h.rain), 0);
+
+    // Definir um teto mínimo para a escala não ficar "colada" no topo e manter legibilidade
+    // Para vento, mínimo de 20km/h. Para chuva, mínimo de 5mm.
+    const dynamicMaxWind = Math.max(20, Math.ceil(maxWindFound * 1.2));
+    const dynamicMaxRain = Math.max(5, Math.ceil(maxRainFound * 1.5));
+
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -114,7 +123,7 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
                 display: true, 
                 position: 'right' as const, 
                 min: 0, 
-                max: 10, // Chuva geralmente é baixa, 10mm é suficiente para escala
+                max: dynamicMaxRain,
                 title: { display: true, text: 'Chuva (mm)', font: { size: 8, weight: 'bold' as any } },
                 grid: { drawOnChartArea: false },
                 ticks: { font: { size: 9 }, color: '#0ea5e9' }
@@ -124,7 +133,7 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
                 display: true,
                 position: 'right' as const,
                 min: 0,
-                max: 60,
+                max: dynamicMaxWind,
                 title: { display: true, text: 'Vento (km/h)', font: { size: 8, weight: 'bold' as any } },
                 grid: { drawOnChartArea: false },
                 ticks: { font: { size: 9 }, color: '#6366f1' }

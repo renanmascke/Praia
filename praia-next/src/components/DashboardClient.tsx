@@ -87,7 +87,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
             
             // "Melhor Evitar" (Worst) deve ser da pior para a melhor (score ascendente)
             const bestPart = sortedRankings.slice(0, half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position }));
-            const worstPart = sortedRankings.slice(half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position })).sort((a, b) => a.score - b.score);
+            const worstPart = sortedRankings.slice(half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position })).reverse();
 
             // Melhor Região por dia
             const regions = ["Norte", "Sul", "Leste", "Oeste", "Centro"]; 
@@ -143,7 +143,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
         const half = Math.ceil(rankedAll.length / 2);
         
         const bestPart = rankedAll.slice(0, half);
-        const worstPart = rankedAll.slice(half).sort((a, b) => a.score - b.score);
+        const worstPart = rankedAll.slice(half).reverse();
 
         return {
             best: bestPart,

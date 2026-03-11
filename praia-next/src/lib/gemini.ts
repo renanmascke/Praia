@@ -40,7 +40,7 @@ export async function generateMultiDayRanking(cityName: string, dailyDataBatch: 
         2. Vento: Se vento > 8km/h, priorize praias com "Vento Ideal" compatível. Se vento <= 8km/h, considere um dia premium ("mar de espelho").
         3. Mar: Ondas < 0.6m são ótimas para banho. Ondas > 1.2m são perigosas.
         4. Chuva (CRÍTICO): 
-           - Se Chance de Chuva > 80% ou Quantidade > 5mm: Score MÁXIMO 25 (Dia perdido).
+           - Se Chance de Chuva > 80% ou Quantidade > 5mm: Score MÁXIMO 25 (Dia perdido). **IMPORTANTE**: Diferencie as praias mesmo abaixo desse teto (ex: use notas como 18, 21, 25) para que o ranking tenha uma ordem clara.
            - Se Chance de Chuva > 50% ou Quantidade > 2mm: Score MÁXIMO 45 (Instável).
            - Se Chance de Chuva > 30%: Reduza a nota em pelo menos 15 pontos.
            - Mencione a chuva no comentário se ela for o motivo da nota baixa.

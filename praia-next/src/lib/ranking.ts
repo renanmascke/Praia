@@ -116,6 +116,10 @@ export async function calculateBeachScore(beach: any, forecast: any, report: any
         } else if (forecast.rainChance > 30 || forecast.rainAmount > 1) {
             score -= 15;
         }
+
+        // Diferenciação fina por temperatura/vento para evitar empates matemáticos
+        score += (forecast.tempMax * 0.1); 
+        score -= (forecast.windSpeed * 0.05);
     }
 
     return score;
