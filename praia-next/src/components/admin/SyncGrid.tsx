@@ -12,6 +12,7 @@ interface SyncGridProps {
 export default function SyncGrid({ showIMA = true, showWeather = true, className = "mb-10" }: SyncGridProps) {
     const [loading, setLoading] = useState<string | null>(null);
     const [stepMessage, setStepMessage] = useState<string | null>(null);
+    const [progress, setProgress] = useState<{ current: number, total: number } | null>(null);
     const router = useRouter();
 
     const handleSync = async (type: 'ima' | 'weather' | 'marine' | 'ranking' | 'all') => {
@@ -23,50 +24,68 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
             all: 'COMPLETA'
         };
 
+        const STEP_NAMES: Record<string, string> = {
+            ima: '🔍 Coletando dados IMA',
+            weather: '🌦️ Clima (Vento/Tempo)',
+            marine: '🌊 Maré e Ondas',
+            math: '🧮 Cálculos Matemáticos',
+            'ai-block-0': '🤖 IA: Norte e Ilha',
+            'ai-block-1': '🤖 IA: Sul e Continente',
+            'ai-block-2': '🤖 IA: Região Leste',
+            'ai-block-3': '🤖 IA: Região Oeste',
+            summary: '📝 Gerando Resumo'
+        };
+
+        const RANKING_PIPELINE = ['math', 'ai-block-0', 'ai-block-1', 'ai-block-2', 'ai-block-3', 'summary'];
+        const GLOBAL_PIPELINE = ['ima', 'weather', 'marine', ...RANKING_PIPELINE];
+
         if (!confirm(`Deseja iniciar a sincronização ${labels[type]} agora? Esta operação será executada em etapas para evitar timeouts.`)) return;
 
         const runId = crypto.randomUUID();
+        const pipeline = type === 'all' ? GLOBAL_PIPELINE : 
+                        type === 'ranking' ? RANKING_PIPELINE : [type];
+        
         setLoading(type);
+        setProgress({ current: 0, total: pipeline.length });
         setStepMessage('Iniciando...');
 
         try {
             let finished = false;
-            let iterations = 0;
-            const maxIterations = 20; // Segurança contra loops infinitos
+            let currentStepIdx = 0;
+            const maxIterations = 25; 
 
-            while (!finished && iterations < maxIterations) {
-                iterations++;
+            while (!finished && currentStepIdx < maxIterations) {
+                const stepLabel = pipeline[currentStepIdx] || '...';
+                const friendlyName = STEP_NAMES[stepLabel] || stepLabel;
+                
+                setStepMessage(`[${currentStepIdx + 1}/${pipeline.length}] ${friendlyName}`);
+                setProgress({ current: currentStepIdx + 1, total: pipeline.length });
+
                 const endpoint = type === 'all' ? '/api/sync-all' : `/api/sync-${type}`;
                 const res = await fetch(`${endpoint}?runId=${runId}&silent=true`);
                 const data = await res.json();
 
                 if (!data.success) {
-                    throw new Error(data.error || "Erro desconhecido na etapa.");
+                    throw new Error(data.error || "Erro na etapa atual.");
                 }
 
-                if (data.finished) {
+                if (data.finished || currentStepIdx >= pipeline.length - 1) {
                     finished = true;
                 } else {
-                    // Atualiza a mensagem visual com o próximo passo sugerido pelo servidor
-                    const nextStep = data.nextStep || '...';
-                    setStepMessage(nextStep.toUpperCase());
-                    
-                    // Pequeno intervalo de segurança entre chamadas (1.5s)
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    currentStepIdx++;
+                    // Pequeno intervalo para o usuário ler a mudança de status
+                    await new Promise(resolve => setTimeout(resolve, 800));
                 }
             }
 
-            if (iterations >= maxIterations) {
-                throw new Error("Limite de etapas excedido. Verifique os logs.");
-            }
-
-            alert(`Sincronização ${labels[type]} finalizada com 100% de sucesso!`);
+            alert(`Sincronização ${labels[type]} finalizada com sucesso!`);
         } catch (error: any) {
             console.error(error);
             alert(`Falha na sincronização: ${error.message}`);
         } finally {
             setLoading(null);
             setStepMessage(null);
+            setProgress(null);
             router.refresh();
         }
     };
@@ -74,7 +93,40 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
     const isAnyLoading = !!loading;
 
     return (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 ${className}`}>
+        <div className={className}>
+            {/* Barra de Progresso Global */}
+            {isAnyLoading && progress && (
+                <div className="mb-8 bg-slate-900 rounded-[2rem] p-6 text-white shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500 border border-orange-500/20">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <p className="text-orange-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Status da Sincronização</p>
+                                <h3 className="text-xl font-black tracking-tight flex items-center gap-3">
+                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-sm">
+                                        {progress.current}
+                                    </span>
+                                    {stepMessage || 'Processando...'}
+                                </h3>
+                            </div>
+                            <p className="text-slate-400 font-bold text-sm tracking-tighter italic">
+                                {Math.round((progress.current / progress.total) * 100)}% concluído
+                            </p>
+                        </div>
+                        
+                        {/* Progress Track */}
+                        <div className="h-3 bg-slate-800 rounded-full overflow-hidden border border-white/5 relative">
+                            <div 
+                                className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-700 ease-out shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                            />
+                            {/* Reflexos e Brilho */}
+                            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* IMA */}
             <div className={`bg-white rounded-[1.5rem] p-5 border shadow-sm transition-all duration-300 ${isAnyLoading ? 'opacity-50 grayscale-[0.5]' : 'hover:shadow-md hover:border-emerald-200'}`}>
                 <div className="flex flex-col h-full justify-between gap-6">
@@ -90,7 +142,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'ima' ? (stepMessage || 'Executando...') : 'Sincronizar'}
+                        {loading === 'ima' ? 'Sincronizando...' : 'Sincronizar'}
                     </button>
                 </div>
             </div>
@@ -110,7 +162,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-sky-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'weather' ? (stepMessage || 'Executando...') : 'Sincronizar'}
+                        {loading === 'weather' ? 'Sincronizando...' : 'Sincronizar'}
                     </button>
                 </div>
             </div>
@@ -130,7 +182,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'marine' ? (stepMessage || 'Executando...') : 'Sincronizar'}
+                        {loading === 'marine' ? 'Sincronizando...' : 'Sincronizar'}
                     </button>
                 </div>
             </div>
@@ -150,7 +202,7 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-orange-500/20 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'ranking' ? (stepMessage || 'Processando...') : 'Recalcular'}
+                        {loading === 'ranking' ? 'Agendado...' : 'Recalcular'}
                     </button>
                 </div>
             </div>
@@ -170,9 +222,10 @@ export default function SyncGrid({ showIMA = true, showWeather = true, className
                         disabled={isAnyLoading}
                         className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-800 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all active:scale-95"
                     >
-                        {loading === 'all' ? (stepMessage || 'Executando...') : 'Tudo'}
+                        {loading === 'all' ? 'Executando...' : 'Tudo'}
                     </button>
                 </div>
+            </div>
             </div>
         </div>
     );
