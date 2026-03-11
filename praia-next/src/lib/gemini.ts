@@ -211,3 +211,62 @@ export async function generateCityDailySummary(
         return "Hoje o dia está convidativo para um passeio no litoral. Confira as praias melhor ranqueadas para aproveitar o sol e o mar calmo.";
     }
 }
+
+export async function generateAiConsultation(
+    query: string,
+    context: {
+        cityName: string;
+        weatherData: any;
+        topBeaches: any[];
+    }
+): Promise<string> {
+    if (!apiKey) return "Serviço de consultoria indisponível no momento.";
+
+    let currentModelName = PRIMARY_MODEL;
+
+    const buildPrompt = () => `
+        Você é o Consultor Especialista em Praias de ${context.cityName}. 
+        Seu objetivo é responder dúvidas de turistas e moradores sobre as melhores condições para aproveitar o dia.
+
+        CONTEXTO ATUAL:
+        - Cidade: ${context.cityName}
+        - Clima: ${JSON.stringify(context.weatherData)}
+        - Melhores Praias Hoje: ${JSON.stringify(context.topBeaches.slice(0, 5))}
+
+        DIRETRIZES DE RESPOSTA:
+        - Seja prestativo, use um tom de "conversa de beira de mar", amigável e entusiasmado.
+        - Se o usuário perguntar horários, seja preciso (ex: "Às 15h o vento Norte aperta, então recomendo ir antes ou escolher praias do Sul").
+        - Se mencionarem crianças ou idosos, priorize praias com Mar Calmo (Sheltered) e boa balneabilidade.
+        - Sempre use nomes de praias em **negrito**.
+        - Seja conciso (máximo de 150 palavras).
+        - **PROIBIDO**: Não se apresente ou use saudações formais. Responda diretamente à dúvida.
+
+        PERGUNTA DO USUÁRIO: "${query}"
+
+        Responda como o consultor experiente:
+    `;
+
+    const promptContent = buildPrompt();
+
+    try {
+        const model = genAI.getGenerativeModel({ model: currentModelName });
+        const result = await model.generateContent(promptContent);
+        const responseText = result.response.text().trim();
+
+        // Logar a interação
+        await (prisma as any).aiLog.create({
+            data: {
+                type: 'CONSULTATION',
+                city: context.cityName,
+                model: currentModelName,
+                prompt: promptContent,
+                response: responseText
+            }
+        });
+
+        return responseText;
+    } catch (error: any) {
+        console.error(">>> Erro na consultoria IA:", error.message);
+        return "Desculpe, tive um pequeno problema ao processar sua consulta. Tente novamente em alguns instantes ou confira as recomendações gerais do ranking.";
+    }
+}

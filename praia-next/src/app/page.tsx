@@ -4,27 +4,48 @@ import DashboardClient from '@/components/DashboardClient';
 export const revalidate = 3600; // Cache de 1 hora na Vercel CDN
 
 export default async function Home() {
-  const beaches = await prisma.beach.findMany({
-    include: {
-      reports: {
-        orderBy: { date: 'desc' },
-        take: 1
-      }
-    }
-  });
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const forecasts = await prisma.weatherForecast.findMany({
-    where: {
-      date: { gte: today }
-    },
-    orderBy: { date: 'asc' },
-    take: 7
+  // 1. Buscar datas únicas que possuem ranking processado
+  const rankedDates = await (prisma as any).beachRanking.findMany({
+    where: { date: { gte: today } },
+    select: { date: true },
+    distinct: ['date'],
+    orderBy: { date: 'asc' }
   });
 
-  const mappedBeaches = beaches.map(b => ({
+  const validDates = rankedDates.map((r: any) => r.date);
+
+  // 2. Buscar forecasts apenas para essas datas
+  const forecasts = await prisma.weatherForecast.findMany({
+    where: {
+      date: { in: validDates }
+    },
+    orderBy: { date: 'asc' }
+  });
+
+  // 3. Buscar os rankings e resumos reais para essas datas
+  const [beachesData, rankings, summaries] = await Promise.all([
+    prisma.beach.findMany({
+      include: {
+        reports: {
+          orderBy: { date: 'desc' },
+          take: 1
+        }
+      }
+    }),
+    (prisma as any).beachRanking.findMany({
+      where: { date: { in: validDates } },
+      include: { beach: true },
+      orderBy: { position: 'asc' }
+    }),
+    (prisma as any).cityDailySummary.findMany({
+      where: { date: { in: validDates } }
+    })
+  ]);
+
+  const mappedBeaches = beachesData.map(b => ({
     id: b.id,
     name: b.name,
     region: b.region,
@@ -36,19 +57,33 @@ export default async function Home() {
     status: b.reports[0]?.status || 'Sem Laudo'
   }));
 
+  // Organizar rankings e resumos por data para facilitar no client
+  const dailyData = validDates.map((date: Date) => {
+    const dStr = date.toISOString().split('T')[0];
+    return {
+      date: dStr,
+      summary: summaries.find((s: any) => s.date.toISOString().split('T')[0] === dStr)?.content || null,
+      rankings: rankings.filter((r: any) => r.date.toISOString().split('T')[0] === dStr)
+    };
+  });
+
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
       <header className="text-center mb-8 gap-2 flex flex-col items-center">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight uppercase italic leading-none">
-          inDica Praia 🏖️
+          inDica Praia <span className="text-sky-500 font-black">VIP</span> 🏖️
         </h1>
         <p className="mt-2 text-slate-400 font-medium text-[10px] sm:text-xs uppercase tracking-[0.2em]">
-          Previsão dos próximos 7 dias
+          Previsão e Inteligência para os próximos dias
         </p>
       </header>
 
       {/* Client Component que contém toda a interatividade e Gráficos */}
-      <DashboardClient initialBeaches={mappedBeaches} initialForecasts={forecasts as any[]} />
+      <DashboardClient 
+        initialBeaches={mappedBeaches} 
+        initialForecasts={forecasts as any[]} 
+        dailyData={dailyData}
+      />
 
       <footer className="text-center text-slate-400 text-[9px] font-bold uppercase tracking-[0.15em] py-8 mt-4">
         Fontes: Balneabilidade Oficial do IMA (Em Tempo Real) e Condições Meteorológicas (WeatherAPI) via Next.js SSR
