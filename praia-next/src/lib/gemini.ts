@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import prisma from "./prisma";
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
@@ -55,6 +56,8 @@ export async function generateMultiDayRanking(cityName: string, dailyDataBatch: 
         ]
     `;
 
+    const promptContent = buildPrompt();
+
     try {
         console.log(`>>> [BATCH] Tentando modelo Gemini: ${currentModelName} para ${cityName}...`);
         const model = genAI.getGenerativeModel({
@@ -62,10 +65,22 @@ export async function generateMultiDayRanking(cityName: string, dailyDataBatch: 
             generationConfig: { responseMimeType: "application/json" }
         });
 
-        const result = await model.generateContent(buildPrompt());
+        const result = await model.generateContent(promptContent);
         const text = result.response.text();
         const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(cleanedText);
+        
+        // Logar a interação
+        await (prisma as any).aiLog.create({
+            data: {
+                type: 'RANKING',
+                city: cityName,
+                model: currentModelName,
+                prompt: promptContent,
+                response: cleanedText
+            }
+        });
+
         console.log(`>>> [BATCH] Sucesso com o modelo: ${currentModelName}`);
         return parsed;
     } catch (error: any) {
@@ -79,10 +94,22 @@ export async function generateMultiDayRanking(cityName: string, dailyDataBatch: 
             });
 
             try {
-                const resultFallback = await fallbackModel.generateContent(buildPrompt());
+                const resultFallback = await fallbackModel.generateContent(promptContent);
                 const textFallback = resultFallback.response.text();
                 const cleanedTextFallback = textFallback.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsedFallback = JSON.parse(cleanedTextFallback);
+                
+                // Logar a interação do fallback
+                await (prisma as any).aiLog.create({
+                    data: {
+                        type: 'RANKING',
+                        city: cityName,
+                        model: currentModelName,
+                        prompt: promptContent,
+                        response: cleanedTextFallback
+                    }
+                });
+
                 console.log(`>>> [BATCH] Sucesso com o modelo de fallback: ${currentModelName}`);
                 return parsedFallback;
             } catch (fallbackError: any) {
@@ -135,18 +162,46 @@ export async function generateCityDailySummary(
         Escreva apenas o boletim de lazer.
     `;
 
+    const promptContent = buildPrompt();
+
     try {
         const model = genAI.getGenerativeModel({ model: currentModelName });
-        const result = await model.generateContent(buildPrompt());
-        return result.response.text().trim();
+        const result = await model.generateContent(promptContent);
+        const responseText = result.response.text().trim();
+
+        // Logar a interação (Resumo)
+        await (prisma as any).aiLog.create({
+            data: {
+                type: 'SUMMARY',
+                city: cityName,
+                model: currentModelName,
+                prompt: promptContent,
+                response: responseText
+            }
+        });
+
+        return responseText;
     } catch (error: any) {
         if (isQuotaError(error) && currentModelName === PRIMARY_MODEL) {
             try {
                 console.warn(`>>> Limite de cota atingido para ${PRIMARY_MODEL} no resumo. Tentando fallback para ${FALLBACK_MODEL}...`);
                 currentModelName = FALLBACK_MODEL;
                 const fallbackModel = genAI.getGenerativeModel({ model: currentModelName });
-                const result = await fallbackModel.generateContent(buildPrompt());
-                return result.response.text().trim();
+                const result = await fallbackModel.generateContent(promptContent);
+                const responseText = result.response.text().trim();
+
+                // Logar a interação (Resumo Fallback)
+                await (prisma as any).aiLog.create({
+                    data: {
+                        type: 'SUMMARY',
+                        city: cityName,
+                        model: currentModelName,
+                        prompt: promptContent,
+                        response: responseText
+                    }
+                });
+
+                return responseText;
             } catch (fallbackError: any) {
                 console.error(">>> Erro no fallback do resumo:", fallbackError.message);
             }

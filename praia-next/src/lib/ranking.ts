@@ -1,5 +1,6 @@
 import prisma from './prisma';
 import { beachWhitelist } from './data';
+import { addSyncStep } from './sync-logger';
 
 function logWithTime(msg: string) {
     const now = new Date();
@@ -272,6 +273,7 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
         // ETAPA: CÁLCULO MATEMÁTICO (Base)
         if (!step || step === 'math') {
             logWithTime(`>>> [CITY: ${city.name}] Executando cálculos matemáticos...`);
+            if (logId) await addSyncStep(logId, `[${city.name}] Calculando scores matemáticos para ${datesToRank.length} dias.`);
             await runInChunks(datesToRank, 2, (date) => generateDailyRankings(city.id, date, logId));
         }
 
@@ -296,6 +298,7 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
 
                     const effectiveIdx = blockIdx === -1 ? bIdx : blockIdx;
                     logWithTime(`>>> [CITY: ${city.name}] Solicitando Lote IA ${effectiveIdx + 1} (${batchDates.length} dias)...`);
+                    if (logId) await addSyncStep(logId, `[${city.name}] Solicitando Lote IA ${effectiveIdx + 1} para ${batchDates.length} dias.`);
                     
                     const batchDataForAi: any[] = [];
                     for (const date of batchDates) {
@@ -317,8 +320,10 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
                         }
                         
                         logWithTime(`>>> [CITY: ${city.name}] Lote IA ${effectiveIdx + 1} e Reordenação concluídos.`);
+                        if (logId) await addSyncStep(logId, `[${city.name}] Lote IA ${effectiveIdx + 1} concluído e reordenado.`);
                     } catch (error: any) {
                         console.error(`>>> ERRO NO LOTE IA ${effectiveIdx + 1}:`, error.message);
+                        if (logId) await addSyncStep(logId, `[${city.name}] ERRO no Lote IA ${effectiveIdx + 1}: ${error.message}`);
                     }
                 }
             }

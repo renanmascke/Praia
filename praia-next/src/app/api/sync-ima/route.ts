@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import prisma from '@/lib/prisma';
 import { beachWhitelist } from '@/lib/data';
 import { sendAdminNotification } from '@/lib/telegram-admin';
+import { addSyncStep } from '@/lib/sync-logger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -55,10 +56,12 @@ export async function runImaSync(silent: boolean = false, runId?: string) {
         // 1. Processar cidades em paralelo
         const cityJobs = cities.map(async (city) => {
             console.log(`>>> Sincronizando cidade: ${city.name} (IMA ID: ${city.imaId})`);
+            await addSyncStep(logId, `Iniciando raspagem para ${city.name} (ID: ${city.imaId})`);
             const cityReports: Record<string, Record<string, any>> = {};
 
             // 1.1. Pré-Injetar as Praias do Whitelist (Apenas Floripa)
             if (city.name === 'Florianópolis') {
+                await addSyncStep(logId, `Injetando whitelist para Florianópolis...`);
                 for (const bw of beachWhitelist) {
                     await prisma.beach.upsert({
                         where: { name: bw.target },
@@ -148,9 +151,11 @@ export async function runImaSync(silent: boolean = false, runId?: string) {
                         }
                     }
                 });
+                await addSyncStep(logId, `Finalizado raspagem para ${city.name}: ${Object.keys(cityReports).length} praias encontradas.`);
                 return { cityName: city.name, reports: cityReports };
-            } catch (e) {
+            } catch (e: any) {
                 console.error(`Erro ao processar ${city.name}:`, e);
+                await addSyncStep(logId, `ERRO em ${city.name}: ${e.message}`);
                 return { cityName: city.name, reports: {} };
             }
         });
@@ -167,6 +172,7 @@ export async function runImaSync(silent: boolean = false, runId?: string) {
 
         // 4. Persistir dados colhidos
         console.log("Persistindo dados históricos...");
+        await addSyncStep(logId, `Iniciando persistência no DB de ${Object.keys(allReports).length} praias.`);
         for (const beachName of Object.keys(allReports)) {
             const beach = await prisma.beach.findUnique({ where: { name: beachName } });
             if (!beach) continue;

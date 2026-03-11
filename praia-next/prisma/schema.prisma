@@ -69,6 +69,7 @@ model BeachRanking {
   aiCommentary   String?  @db.Text    // Comentário gerado pelo Gemini
   beach          Beach    @relation(fields: [beachId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
 
   @@unique([beachId, date])
 }
@@ -100,6 +101,7 @@ model Report {
   status         String
   beach          Beach    @relation(fields: [beachId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
 
   @@unique([beachId, date])
 }
@@ -130,6 +132,7 @@ model WeatherForecast {
   hourlyData  Json?
   anchor      ForecastAnchor @relation(fields: [anchorId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   @@unique([anchorId, date])
 }
@@ -143,7 +146,20 @@ model SyncLog {
   status    String   // 'SUCCESS', 'FAILED', 'RUNNING'
   message   String?  @db.Text
   response  Json?
+  steps     SyncStepLog[]
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model SyncStepLog {
+  id        String   @id @default(uuid())
+  logId     String
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  syncLog   SyncLog  @relation(fields: [logId], references: [id], onDelete: Cascade)
+
+  @@index([logId])
 }
 
 model WindDirection {
@@ -165,4 +181,15 @@ model ApiQuota {
   updatedAt DateTime @updatedAt
 
   @@unique([provider, date])
+}
+
+model AiLog {
+  id        String   @id @default(uuid())
+  type      String   // 'RANKING', 'SUMMARY'
+  city      String
+  model     String   // Qual modelo foi usado (flash, pro, etc)
+  prompt    String   @db.LongText
+  response  String   @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }

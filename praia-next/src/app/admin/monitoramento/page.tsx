@@ -24,9 +24,11 @@ export default async function AdminSyncLogsPage({
 
     const [logs, total, quotas, history, monthlyQuota]: [any[], any, any, any, any] = await Promise.all([
         (prisma as any).$queryRawUnsafe(`
-            SELECT * FROM SyncLog 
-            ${search ? `WHERE type LIKE '%${search}%' OR status LIKE '%${search}%' OR message LIKE '%${search}%'` : ''}
-            ORDER BY startTime DESC 
+            SELECT sl.*, 
+                   (SELECT COUNT(*) FROM SyncStepLog WHERE logId = sl.id) as stepCount
+            FROM SyncLog sl
+            ${search ? `WHERE sl.type LIKE '%${search}%' OR sl.status LIKE '%${search}%' OR sl.message LIKE '%${search}%'` : ''}
+            ORDER BY sl.startTime DESC 
             LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
         `),
         (prisma as any).$queryRawUnsafe(`

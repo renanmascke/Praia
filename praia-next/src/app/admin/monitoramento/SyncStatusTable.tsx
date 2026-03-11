@@ -1,14 +1,30 @@
 'use client';
 
 import { useState } from 'react';
+import { getSyncSteps } from '@/lib/sync-actions';
 
 export default function SyncStatusTable({ logs }: { logs: any[] }) {
     const [selectedResponse, setSelectedResponse] = useState<any>(null);
+    const [selectedSteps, setSelectedSteps] = useState<any[] | null>(null);
+    const [loadingSteps, setLoadingSteps] = useState<string | null>(null);
+    const [logForSteps, setLogForSteps] = useState<any>(null);
 
     const formatDuration = (start: Date, end: Date | null) => {
         if (!end) return 'Em andamento...';
         const diff = new Date(end).getTime() - new Date(start).getTime();
         return `${(diff / 1000).toFixed(1)}s`;
+    };
+
+    const handleViewSteps = async (log: any) => {
+        setLogForSteps(log);
+        setLoadingSteps(log.id);
+        const result = await getSyncSteps(log.id);
+        if (result.success) {
+            setSelectedSteps(result.steps);
+        } else {
+            alert('Erro ao carregar detalhes: ' + result.error);
+        }
+        setLoadingSteps(null);
     };
 
     return (
@@ -67,14 +83,25 @@ export default function SyncStatusTable({ logs }: { logs: any[] }) {
                                     <p className="text-[10px] font-medium text-slate-500 truncate max-w-[250px]" title={log.message}>
                                         {log.message || '--'}
                                     </p>
-                                    {log.response && (
-                                        <button
-                                            onClick={() => setSelectedResponse(log)}
-                                            className="text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors shrink-0"
-                                        >
-                                            Ver JSON
-                                        </button>
-                                    )}
+                                    <div className="flex items-center gap-3">
+                                        {log.stepCount > 0 && (
+                                            <button
+                                                onClick={() => handleViewSteps(log)}
+                                                disabled={loadingSteps === log.id}
+                                                className="text-[9px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-700 transition-colors shrink-0 flex items-center gap-1"
+                                            >
+                                                <span>📋</span> {loadingSteps === log.id ? 'Carregando...' : `Detalhes (${log.stepCount})`}
+                                            </button>
+                                        )}
+                                        {log.response && (
+                                            <button
+                                                onClick={() => setSelectedResponse(log)}
+                                                className="text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors shrink-0"
+                                            >
+                                                Ver JSON
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -161,6 +188,51 @@ export default function SyncStatusTable({ logs }: { logs: any[] }) {
                         </div>
                         <footer className="bg-slate-50 p-6 border-t border-slate-100 text-right">
                             <button onClick={() => setSelectedResponse(null)} className="bg-slate-800 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs">Fechar</button>
+                        </footer>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Detalhes das Etapas */}
+            {selectedSteps && logForSteps && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-white/20 animate-in zoom-in-95 duration-300 flex flex-col max-h-[85vh]">
+                        <header className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center shrink-0">
+                            <div>
+                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-1">Linha do Tempo</p>
+                                <h3 className="font-black text-slate-800 uppercase tracking-tight text-xl">
+                                    Detalhes da Execução
+                                </h3>
+                            </div>
+                            <button onClick={() => { setSelectedSteps(null); setLogForSteps(null); }} className="text-slate-400 hover:text-rose-500 transition-colors text-xl leading-none">✕</button>
+                        </header>
+                        
+                        <div className="p-6 overflow-auto flex-1 custom-scrollbar bg-white">
+                            {selectedSteps.length === 0 ? (
+                                <div className="p-10 text-center text-slate-400 italic text-sm">Nenhum detalhe registrado para esta sincronização.</div>
+                            ) : (
+                                <div className="relative border-l-2 border-slate-100 ml-3 pl-8 space-y-8">
+                                    {selectedSteps.map((step, i) => (
+                                        <div key={step.id} className="relative">
+                                            {/* Dot */}
+                                            <div className="absolute -left-[35px] top-1 w-3.5 h-3.5 rounded-full bg-white border-2 border-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.1)]" />
+                                            
+                                            <div className="flex flex-col gap-1">
+                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                    {new Date(step.createdAt).toLocaleTimeString('pt-BR')}
+                                                </div>
+                                                <div className="text-sm font-medium text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 group-hover:border-blue-100 transition-colors">
+                                                    {step.message}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <footer className="bg-slate-50 p-6 border-t border-slate-100 text-right">
+                            <button onClick={() => { setSelectedSteps(null); setLogForSteps(null); }} className="bg-slate-800 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs">Fechar</button>
                         </footer>
                     </div>
                 </div>
