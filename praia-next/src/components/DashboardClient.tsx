@@ -43,6 +43,8 @@ interface ForecastData {
 interface DailyData {
     date: string;
     summary: string | null;
+    isBest: boolean;
+    bestAnchorName: string;
     rankings: any[];
 }
 
@@ -191,22 +193,35 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
         <div className="overflow-hidden relative text-sm font-sans">
 
             {/* Seletor de Datas */}
-            <section className="mb-10 overflow-x-auto no-scrollbar scroll-smooth">
-                <div className="flex justify-start md:justify-center min-w-max pb-4 px-4">
+            <section className="mb-8 overflow-x-auto no-scrollbar scroll-smooth">
+                <div className="flex justify-start md:justify-center min-w-max pb-4 px-4 font-black">
                     <div className="inline-flex bg-slate-200/50 backdrop-blur-md rounded-[2rem] p-1.5 border border-slate-200 shadow-sm gap-1.5">
                         {initialForecasts.map((forecast, idx) => {
                             const fd = new Date(forecast.date);
                             const fdISO = fd.toISOString().split('T')[0];
-                            const isToday = fd.toDateString() === new Date().toDateString();
+                            
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const isToday = fd.toDateString() === today.toDateString();
+                            
+                            const tomorrow = new Date(today);
+                            tomorrow.setDate(tomorrow.getDate() + 1);
+                            const isTomorrow = fd.toDateString() === tomorrow.toDateString();
+
                             const isBest = bestDayDate === fdISO;
-                            const label = isToday ? "Hoje" : fd.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }).replace('.', '');
+                            
+                            let label = "";
+                            if (isToday) label = "Hoje";
+                            else if (isTomorrow) label = "Amanhã";
+                            else label = fd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
                             const isActive = idx === selectedDayIdx;
                             return (
                                 <button
                                     key={forecast.id}
                                     onClick={() => setSelectedDayIdx(idx)}
-                                    className={`relative px-6 py-3 rounded-[1.5rem] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap flex items-center gap-2 ${isActive ? 'bg-white text-sky-600 shadow-xl shadow-sky-100/50 scale-105 border border-slate-100' : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'}`}>
-                                    {isBest && <span title="Melhor Dia" className="text-amber-500 animate-pulse">⭐</span>}
+                                    className={`relative px-6 py-2.5 rounded-[1.5rem] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap flex items-center gap-2 ${isActive ? 'bg-white text-sky-600 shadow-xl shadow-sky-100/50 scale-105 border border-slate-100' : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'}`}>
+                                    {isBest && <span title="Melhor Dia da Semana" className="text-amber-500">⭐</span>}
                                     {label}
                                     {isActive && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-sky-500 rounded-full"></span>}
                                 </button>
@@ -220,7 +235,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
             <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden mb-12 relative transition-all duration-500">
 
                 {/* Bloco 1: Veredito & Insight */}
-                <div className={`p-8 md:p-12 text-center border-b border-slate-50 relative overflow-hidden ${theme === 'rose' ? 'bg-rose-50/10' : 'bg-emerald-50/10'}`}>
+                <div className={`p-6 md:p-10 text-center border-b border-slate-50 relative overflow-hidden ${theme === 'rose' ? 'bg-rose-50/10' : 'bg-emerald-50/10'}`}>
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-white/50 to-transparent pointer-events-none"></div>
                     
                     <h2 className="relative z-10 text-[10px] sm:text-xs font-black tracking-[0.3em] uppercase mb-4 text-slate-400/80">
@@ -230,24 +245,24 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                     <div className="relative z-10 flex flex-col items-center justify-center gap-6 mb-8">
                         {citySummary ? (
                             <div className="max-w-3xl mx-auto">
-                                <h3 className={`text-2xl md:text-3xl font-black tracking-tight leading-tight uppercase text-slate-800 mb-4`}>
+                                <h3 className={`text-xl md:text-2xl font-extrabold tracking-tight leading-tight uppercase text-slate-800 mb-4`}>
                                     {renderBoldText(citySummary)}
                                 </h3>
-                                <div className="w-16 h-1 bg-sky-500 mx-auto rounded-full mb-4"></div>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
+                                <div className="w-12 h-1 bg-sky-500 mx-auto rounded-full mb-4"></div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-4">
-                                <h3 className={`text-4xl md:text-5xl font-black tracking-tighter leading-none uppercase text-${theme}-600 mb-1`}>
+                                <h3 className={`text-2xl md:text-3xl font-black tracking-tighter leading-none uppercase text-${theme}-600 mb-1`}>
                                     {verdictStatus}
                                 </h3>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
                             </div>
                         )}
 
                         <div className="flex flex-wrap justify-center gap-3">
                             <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-slate-700">
-                                <span className="text-base">📍</span> Melhor Região: <span className="text-sky-600">{ranking.recommendedRegion}</span>
+                                <span className="text-base">📍</span> Melhor Região: <span className="text-sky-600">{currentDaily?.bestAnchorName || "Qualquer Região"}</span>
                             </div>
                             <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-sky-600">
                                 <span className="text-base text-sky-400">🌬️</span> {formatWindLocale(selectedForecast.windDir)}

@@ -37,8 +37,8 @@ export default async function Home() {
     orderBy: { date: 'asc' }
   });
 
-  // 3. Buscar os rankings e resumos reais para essas datas
-  const [beachesData, rankings, summaries] = await Promise.all([
+  // 3. Buscar os rankings, resumos e nomes das regiões
+  const [beachesData, rankings, summaries, anchors] = await Promise.all([
     prisma.beach.findMany({
       include: {
         reports: {
@@ -54,18 +54,22 @@ export default async function Home() {
     }),
     (prisma as any).cityDailySummary.findMany({
       where: { date: { in: validDates } }
-    })
+    }),
+    prisma.forecastAnchor.findMany()
   ]);
 
   // 4. Organizar rankings e resumos por data para facilitar no client
   const dailyData = validDates.map((date: Date) => {
     const dStr = date.toISOString().split('T')[0];
     const summary = summaries.find((s: any) => s.date.toISOString().split('T')[0] === dStr);
+    const bestAnchor = anchors.find(a => a.id === (summary as any)?.bestAnchorId);
+    
     return {
       date: dStr,
       summary: summary?.content || null,
       isBest: (summary as any)?.isBest || false,
       bestAnchorId: (summary as any)?.bestAnchorId || null,
+      bestAnchorName: bestAnchor?.name || "Qualquer Região",
       rankings: rankings.filter((r: any) => r.date.toISOString().split('T')[0] === dStr)
     };
   });
