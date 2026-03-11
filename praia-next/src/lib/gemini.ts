@@ -270,3 +270,55 @@ export async function generateAiConsultation(
         return "Desculpe, tive um pequeno problema ao processar sua consulta. Tente novamente em alguns instantes ou confira as recomendações gerais do ranking.";
     }
 }
+export async function selectBestDay(
+    cityName: string,
+    dailySummaries: { date: string, content: string }[]
+): Promise<string | null> {
+    if (!apiKey || dailySummaries.length === 0) return null;
+
+    let currentModelName = PRIMARY_MODEL;
+
+    const buildPrompt = () => `
+        Analise os boletins diários de lazer da cidade de ${cityName} para os próximos dias e escolha qual é o MELHOR dia absoluto para ir à praia.
+        Considere o clima, as recomendações e o entusiasmo descrito em cada boletim.
+
+        BOLETINS:
+        ${JSON.stringify(dailySummaries, null, 2)}
+
+        RETORNE OBRIGATORIAMENTE UM JSON NO FORMATO:
+        {
+            "bestDate": "YYYY-MM-DD",
+            "justification": "Uma frase curta de por que este é o melhor dia."
+        }
+    `;
+
+    const promptContent = buildPrompt();
+
+    try {
+        const model = genAI.getGenerativeModel({
+            model: currentModelName,
+            generationConfig: { responseMimeType: "application/json" }
+        });
+
+        const result = await model.generateContent(promptContent);
+        const text = result.response.text();
+        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleanedText);
+
+        // Logar a interação
+        await (prisma as any).aiLog.create({
+            data: {
+                type: 'HIGHLIGHT',
+                city: cityName,
+                model: currentModelName,
+                prompt: promptContent,
+                response: cleanedText
+            }
+        });
+
+        return parsed.bestDate;
+    } catch (error: any) {
+        console.error(">>> Erro ao selecionar melhor dia:", error.message);
+        return null;
+    }
+}

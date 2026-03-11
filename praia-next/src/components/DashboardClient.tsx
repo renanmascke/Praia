@@ -46,7 +46,7 @@ interface DailyData {
     rankings: any[];
 }
 
-export default function DashboardClient({ initialBeaches, initialForecasts, dailyData }: { initialBeaches: BeachData[], initialForecasts: ForecastData[], dailyData: DailyData[] }) {
+export default function DashboardClient({ initialBeaches, initialForecasts, dailyData, bestDayDate }: { initialBeaches: BeachData[], initialForecasts: ForecastData[], dailyData: DailyData[], bestDayDate?: string | null }) {
     const [selectedDayIdx, setSelectedDayIdx] = useState(0);
     const [rankingExpanded, setRankingExpanded] = useState(false);
     const [query, setQuery] = useState("");
@@ -87,9 +87,19 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
             const bestPart = sortedRankings.slice(0, half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position }));
             const worstPart = sortedRankings.slice(half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position })).sort((a, b) => a.score - b.score);
 
+            // Melhor Região por dia
+            const regions = ["Norte", "Sul", "Leste", "Oeste", "Centro"]; 
+            const regionScores = regions.map(r => {
+                const bCount = sortedRankings.filter(br => br.beach.region.toLowerCase().includes(r.toLowerCase())).length;
+                const bSum = sortedRankings.filter(br => br.beach.region.toLowerCase().includes(r.toLowerCase())).reduce((acc, br) => acc + br.score, 0);
+                return { name: r, avg: bCount > 0 ? bSum / bCount : 0 };
+            });
+            const bestRegion = regionScores.sort((a, b) => b.avg - a.avg)[0];
+
             return {
                 best: bestPart,
-                worst: worstPart
+                worst: worstPart,
+                recommendedRegion: bestRegion.avg > 40 ? bestRegion.name : "Qualquer Região"
             };
         }
 
@@ -105,7 +115,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
             } else if (dStr.includes('S')) {
                 if (r.includes('Exposed')) weatherScore -= 55;
                 if (r.includes('North')) weatherScore += 20;
-                if (r.includes('South')) weatherScore -= 20;
+                if (r.includes('South')) weatherScore -= 2;
             } else if (dStr.includes('E')) {
                 if (r.includes('East')) weatherScore -= 40;
             }
@@ -117,6 +127,15 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
             if (finalScore < 0) finalScore = 0;
             return { ...p, score: Math.round(finalScore) };
         });
+        // Melhor Região por dia
+        const regions = ["Norte", "Sul", "Leste", "Oeste", "Centro"]; 
+        const regionScores = regions.map(r => {
+            const beachesInRegion = scoredList.filter(b => b.region.toLowerCase().includes(r.toLowerCase()));
+            const avg = beachesInRegion.length > 0 ? beachesInRegion.reduce((acc, b) => acc + b.score, 0) / beachesInRegion.length : 0;
+            return { name: r, avg };
+        });
+        const bestRegion = regionScores.sort((a, b) => b.avg - a.avg)[0];
+
         const sortedAll = scoredList.sort((a, b) => b.score - a.score);
         const rankedAll = sortedAll.map((p, i) => ({ ...p, globalRank: i + 1 }));
         const half = Math.ceil(rankedAll.length / 2);
@@ -126,7 +145,8 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
 
         return {
             best: bestPart,
-            worst: worstPart
+            worst: worstPart,
+            recommendedRegion: bestRegion.avg > 40 ? bestRegion.name : "Qualquer Região"
         };
     }, [initialBeaches, selectedForecast, currentDaily]);
 
@@ -176,14 +196,17 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                     <div className="inline-flex bg-slate-200/50 backdrop-blur-md rounded-[2rem] p-1.5 border border-slate-200 shadow-sm gap-1.5">
                         {initialForecasts.map((forecast, idx) => {
                             const fd = new Date(forecast.date);
+                            const fdISO = fd.toISOString().split('T')[0];
                             const isToday = fd.toDateString() === new Date().toDateString();
+                            const isBest = bestDayDate === fdISO;
                             const label = isToday ? "Hoje" : fd.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }).replace('.', '');
                             const isActive = idx === selectedDayIdx;
                             return (
                                 <button
                                     key={forecast.id}
                                     onClick={() => setSelectedDayIdx(idx)}
-                                    className={`relative px-6 py-3 rounded-[1.5rem] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-white text-sky-600 shadow-xl shadow-sky-100/50 scale-105 border border-slate-100' : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'}`}>
+                                    className={`relative px-6 py-3 rounded-[1.5rem] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap flex items-center gap-2 ${isActive ? 'bg-white text-sky-600 shadow-xl shadow-sky-100/50 scale-105 border border-slate-100' : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'}`}>
+                                    {isBest && <span title="Melhor Dia" className="text-amber-500 animate-pulse">⭐</span>}
                                     {label}
                                     {isActive && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-sky-500 rounded-full"></span>}
                                 </button>
@@ -205,46 +228,32 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                     </h2>
 
                     <div className="relative z-10 flex flex-col items-center justify-center gap-6 mb-8">
-                        <div className="flex items-center gap-4">
-                            {hourlyJSON[2]?.icon && (
-                                <div className="bg-white p-4 rounded-[2rem] shadow-lg shadow-slate-100 border border-slate-50">
-                                    <img src={hourlyJSON[2].icon} alt="icon" className="w-12 h-12 object-contain" />
-                                </div>
-                            )}
-                            <div className="text-center md:text-left">
+                        {citySummary ? (
+                            <div className="max-w-3xl mx-auto">
+                                <h3 className={`text-2xl md:text-3xl font-black tracking-tight leading-tight uppercase text-slate-800 mb-4`}>
+                                    {renderBoldText(citySummary)}
+                                </h3>
+                                <div className="w-16 h-1 bg-sky-500 mx-auto rounded-full mb-4"></div>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center gap-4">
                                 <h3 className={`text-4xl md:text-5xl font-black tracking-tighter leading-none uppercase text-${theme}-600 mb-1`}>
                                     {verdictStatus}
                                 </h3>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{descString}</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
                             </div>
-                        </div>
+                        )}
 
                         <div className="flex flex-wrap justify-center gap-3">
                             <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-slate-700">
-                                <span className="text-base">📍</span> {formatRegionLocale(initialBeaches[0]?.region)}
+                                <span className="text-base">📍</span> Melhor Região: <span className="text-sky-600">{ranking.recommendedRegion}</span>
                             </div>
                             <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-sky-600">
                                 <span className="text-base text-sky-400">🌬️</span> {formatWindLocale(selectedForecast.windDir)}
                             </div>
                         </div>
                     </div>
-
-                    {citySummary && (
-                        <div className="relative z-10 max-w-4xl mx-auto mt-4 group">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-sky-400 to-indigo-400 rounded-[2.5rem] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
-                            <div className="relative bg-white rounded-[2rem] p-6 md:p-8 border border-slate-100 shadow-sm text-left">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 bg-sky-50 rounded-xl">
-                                        <span className="text-xl">✨</span>
-                                    </div>
-                                    <h4 className="text-slate-800 font-black uppercase tracking-widest text-[10px]">Insight do Especialista</h4>
-                                </div>
-                                <div className="text-slate-600 text-sm md:text-base font-medium leading-[1.8] analysis-content">
-                                    {renderBoldText(citySummary)}
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* Dados Técnicos e Gráfico */}

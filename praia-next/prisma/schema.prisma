@@ -29,13 +29,15 @@ model City {
 }
 
 model CityDailySummary {
-  id        String   @id @default(uuid())
-  cityId    String
-  date      DateTime @db.Date
-  content   String?  @db.Text
-  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  cityId        String
+  date          DateTime @db.Date
+  content       String?  @db.LongText
+  isBest        Boolean  @default(false)
+  bestAnchorId  String?  // Id do ponto de previsão da melhor praia do dia
+  city          City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([cityId, date])
 }

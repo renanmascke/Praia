@@ -19,6 +19,7 @@ export async function getRankingSteps() {
         steps.push(`ai-block-${i}`);
     }
     steps.push('summary');
+    steps.push('highlight');
     return steps;
 }
 
@@ -394,11 +395,25 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
                         }));
 
                         const summaryContent = await generateCityDailySummary(city.name, weatherSummary, topRankings);
+                        
+                        // Descobrir a melhor região (anchorId da praia #1)
+                        const bestBeach = await prisma.beach.findUnique({
+                            where: { id: sortedRankings[0]?.beachId }
+                        });
+
                         if (summaryContent) {
                             await (prisma as any).cityDailySummary.upsert({
                                 where: { cityId_date: { cityId: city.id, date } },
-                                update: { content: summaryContent },
-                                create: { cityId: city.id, date, content: summaryContent }
+                                update: { 
+                                    content: summaryContent,
+                                    bestAnchorId: bestBeach?.anchorId || null
+                                },
+                                create: { 
+                                    cityId: city.id, 
+                                    date, 
+                                    content: summaryContent,
+                                    bestAnchorId: bestBeach?.anchorId || null
+                                }
                             });
                         }
                     } catch (e) {
@@ -406,6 +421,52 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
                     }
                 }
             });
+        }
+
+        // ETAPA FINAL: DESTAQUE (Escolha do Melhor Dia pela IA)
+        if (!step || step === 'highlight') {
+            logWithTime(`>>> [CITY: ${city.name}] Elegendo o Melhor Dia do período...`);
+            if (logId) await addSyncStep(logId, `[${city.name}] Analisando boletins para eleger o Melhor Dia.`);
+
+            try {
+                // Buscar todos os sumários recentes desta cidade
+                const allSummaries = await prisma.cityDailySummary.findMany({
+                    where: { cityId: city.id, date: { in: datesToRank } },
+                    orderBy: { date: 'asc' }
+                });
+
+                if (allSummaries.length > 0) {
+                    const { selectBestDay } = await import('./gemini');
+                    const summariesForAi = allSummaries.map(s => ({
+                        date: s.date.toISOString().split('T')[0],
+                        content: s.content || ""
+                    }));
+
+                    const bestDateStr = await selectBestDay(city.name, summariesForAi);
+                    
+                    if (bestDateStr) {
+                        const bestDate = new Date(bestDateStr + 'T00:00:00Z');
+                        
+                        // Resetar destaques anteriores para este período
+                        await (prisma as any).cityDailySummary.updateMany({
+                            where: { cityId: city.id, date: { in: datesToRank } },
+                            data: { isBest: false }
+                        });
+
+                        // Marcar o novo campeão
+                        await (prisma as any).cityDailySummary.update({
+                            where: { cityId_date: { cityId: city.id, date: bestDate } },
+                            data: { isBest: true }
+                        });
+
+                        logWithTime(`>>> [CITY: ${city.name}] Melhor dia eleito: ${bestDateStr}`);
+                        if (logId) await addSyncStep(logId, `[${city.name}] Melhor dia eleito pela IA: ${bestDateStr}`);
+                    }
+                }
+            } catch (e) {
+                console.error("Erro ao destacar melhor dia:", e);
+                if (logId) await addSyncStep(logId, `[${city.name}] Erro ao eleger melhor dia: ${e instanceof Error ? e.message : 'Erro desconhecido'}`);
+            }
         }
     }
 

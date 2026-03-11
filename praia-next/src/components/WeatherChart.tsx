@@ -39,13 +39,14 @@ interface HourlyData {
 
 export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] }) {
     const chartData = {
-        labels: hourlyData.map(h => h.time.substring(0, 5)), // "03:00" -> "03h" if needed, just taking first 5 chars
+        labels: hourlyData.map(h => h.time.substring(11, 16).replace(':', 'h')), // "2026-03-11 03:00" -> "03h00"
         datasets: [
             {
                 type: 'line' as const,
                 label: 'Temperatura (°C)',
                 data: hourlyData.map(h => h.temp),
                 borderColor: '#f59e0b',
+                backgroundColor: '#f59e0b',
                 borderWidth: 3,
                 tension: 0.4,
                 yAxisID: 'y'
@@ -54,7 +55,8 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
                 type: 'line' as const,
                 label: 'Vento (km/h)',
                 data: hourlyData.map(h => h.wind),
-                borderColor: '#0ea5e9',
+                borderColor: '#6366f1',
+                backgroundColor: '#6366f1',
                 borderWidth: 2,
                 borderDash: [5, 5],
                 tension: 0.3,
@@ -101,6 +103,7 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
         },
         scales: {
             y: { 
+                position: 'left' as const,
                 min: 10, 
                 max: 45, 
                 grid: { color: '#f1f5f9' },
@@ -108,11 +111,23 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
             },
             y1: { 
                 type: 'linear' as const, 
-                display: false, 
+                display: true, 
                 position: 'right' as const, 
                 min: 0, 
-                max: 20, // Reduzido de 50 para 20 para as barras ficarem mais visíveis
-                grid: { drawOnChartArea: false }
+                max: 10, // Chuva geralmente é baixa, 10mm é suficiente para escala
+                title: { display: true, text: 'Chuva (mm)', font: { size: 8, weight: 'bold' as any } },
+                grid: { drawOnChartArea: false },
+                ticks: { font: { size: 9 }, color: '#0ea5e9' }
+            },
+            y2: {
+                type: 'linear' as const,
+                display: true,
+                position: 'right' as const,
+                min: 0,
+                max: 60,
+                title: { display: true, text: 'Vento (km/h)', font: { size: 8, weight: 'bold' as any } },
+                grid: { drawOnChartArea: false },
+                ticks: { font: { size: 9 }, color: '#6366f1' }
             }
         }
     };
