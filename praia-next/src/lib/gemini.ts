@@ -149,19 +149,20 @@ export async function generateCityDailySummary(
         
         DIRETRIZES DE CONTEÚDO:
         - **DIFERENCIAÇÃO DE PERÍODOS**: Analise os dados de MANHÃ e TARDE. Se houver mudança significativa no vento ou chuva, RECOMENDE praias ou regiões diferentes para cada período (ex: "Manhã perfeita no Norte, mas à tarde o vento vira e o Sul fica melhor").
-        - **NOMES EXPLÍCITOS**: Você DEVE citar obrigatoriamente os nomes das **Regiões** (Norte, Sul, Leste, etc.) e as **Praias** específicas recomendadas. Não seja genérico.
+        - **NOMES EXPLÍCITOS E REAIS**: Você DEVE citar obrigatoriamente os nomes das **Regiões** (Norte, Sul, Leste, etc.) e as **Praias** específicas recomendadas.
+        - **PROIBIDO ALUCINAR**: Use APENAS os nomes de praias fornecidos na lista de "Rankings Sugeridos". Não invente praias que não estejam nos dados. Se o ranking trouxer "**Daniela**", use esse nome. Não cite praias famosas se elas não estiverem no Top do ranking enviado.
         - **CONCISÃO**: O texto deve ser curto e dinâmico (máximo de 2 parágrafos pequenos).
         - **PROIBIDO**: Não se apresente, não use saudações ("Olá"), e não cite nomes ou cargos (como "Garota do Tempo"). Comece direto no conteúdo.
 
         ESTRUTURA SUGERIDA:
         1. Resumo do Tempo: Céu, temperatura e risco de chuva (avisar claramente se > 40%).
         2. Dica do Especialista: Onde ir na **Manhã** vs **Tarde** baseado no vento e mar.
-        3. Top Praias: Destaque as Top 3 do ranking com nomes em negrito.
+        3. Top Praias: Destaque as Top 3 do Ranking Sugerido com nomes em negrito.
 
         DADOS:
         - Cidade: ${cityName}
         - Clima Detalhado (Manhã/Tarde/Noite): ${JSON.stringify(weatherData)}
-        - Rankings Sugeridos (Candidatos): ${JSON.stringify(rankingData.slice(0, 5))}
+        - Rankings Sugeridos (Onde escolher nomes): ${JSON.stringify(rankingData.slice(0, 5))}
 
         Escreva apenas o boletim de lazer.
     `;

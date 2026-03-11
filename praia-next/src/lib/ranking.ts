@@ -364,6 +364,7 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
             await runInChunks(datesToRank, 2, async (date) => {
                 const sortedRankings = await prisma.beachRanking.findMany({
                     where: { beachId: { in: beaches.map(b => b.id) }, date },
+                    include: { beach: { select: { name: true } } },
                     orderBy: { score: 'desc' },
                     take: 5
                 });
@@ -400,6 +401,7 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
 
                         const topRankings = sortedRankings.map(r => ({
                             beachId: r.beachId,
+                            name: (r as any).beach.name,
                             score: r.score,
                             commentary: r.aiCommentary
                         }));
