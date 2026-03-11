@@ -1,0 +1,17 @@
+name: Daily Beach Sync Orchestrator
+
+on:
+  schedule:
+    # Roda a cada 10 minutos entre 06:00 e 09:00 AM UTC (Ajuste conforme fuso horário)
+    # 06:00-09:00 UTC é aprox 03:00-06:00 BRT
+    - cron: '*/10 6-9 * * *'
+  workflow_dispatch: # Permite rodar manualmente pelo GitHub
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Sync Step
+        run: |
+          curl -X GET "https://${{ secrets.VERCEL_PROJECT_URL }}/api/sync-all" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
