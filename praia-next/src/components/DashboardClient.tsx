@@ -82,13 +82,18 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
         if (currentDaily?.rankings && currentDaily.rankings.length > 0) {
             const sortedRankings = [...currentDaily.rankings].sort((a, b) => a.position - b.position);
             const half = Math.ceil(sortedRankings.length / 2);
+            
+            // "Melhor Evitar" (Worst) deve ser da pior para a melhor (score ascendente)
+            const bestPart = sortedRankings.slice(0, half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position }));
+            const worstPart = sortedRankings.slice(half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position })).sort((a, b) => a.score - b.score);
+
             return {
-                best: sortedRankings.slice(0, half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position })),
-                worst: sortedRankings.slice(half).map(r => ({ ...r.beach, score: r.score, globalRank: r.position }))
+                best: bestPart,
+                worst: worstPart
             };
         }
 
-        // Fallback calculation (same as before)
+        // Fallback calculation (local)
         const dStr = String(selectedForecast.windDir || "NE").toUpperCase();
         const scoredList = initialBeaches.map((p, i) => {
             let weatherScore = 72;
@@ -115,9 +120,13 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
         const sortedAll = scoredList.sort((a, b) => b.score - a.score);
         const rankedAll = sortedAll.map((p, i) => ({ ...p, globalRank: i + 1 }));
         const half = Math.ceil(rankedAll.length / 2);
+        
+        const bestPart = rankedAll.slice(0, half);
+        const worstPart = rankedAll.slice(half).sort((a, b) => a.score - b.score);
+
         return {
-            best: rankedAll.slice(0, half),
-            worst: rankedAll.slice(half).sort((a, b) => (a.score - b.score) || (b.globalRank - a.globalRank))
+            best: bestPart,
+            worst: worstPart
         };
     }, [initialBeaches, selectedForecast, currentDaily]);
 
@@ -163,8 +172,8 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
 
             {/* Seletor de Datas */}
             <section className="mb-10 overflow-x-auto no-scrollbar scroll-smooth">
-                <div className="flex justify-start md:justify-center min-w-max pb-4">
-                    <div className="inline-flex bg-slate-200/50 backdrop-blur-md rounded-[2rem] p-1.5 shadow-inner border border-slate-200/50 gap-1.5">
+                <div className="flex justify-start md:justify-center min-w-max pb-4 px-4">
+                    <div className="inline-flex bg-slate-200/50 backdrop-blur-md rounded-[2rem] p-1.5 border border-slate-200 shadow-sm gap-1.5">
                         {initialForecasts.map((forecast, idx) => {
                             const fd = new Date(forecast.date);
                             const isToday = fd.toDateString() === new Date().toDateString();
@@ -174,7 +183,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                                 <button
                                     key={forecast.id}
                                     onClick={() => setSelectedDayIdx(idx)}
-                                    className={`relative px-6 py-3 rounded-[1.5rem] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-white text-sky-600 shadow-xl shadow-sky-100/50 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'}`}>
+                                    className={`relative px-6 py-3 rounded-[1.5rem] text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-white text-sky-600 shadow-xl shadow-sky-100/50 scale-105 border border-slate-100' : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'}`}>
                                     {label}
                                     {isActive && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-sky-500 rounded-full"></span>}
                                 </button>
@@ -202,7 +211,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                                     <img src={hourlyJSON[2].icon} alt="icon" className="w-12 h-12 object-contain" />
                                 </div>
                             )}
-                            <div className="text-left">
+                            <div className="text-center md:text-left">
                                 <h3 className={`text-4xl md:text-5xl font-black tracking-tighter leading-none uppercase text-${theme}-600 mb-1`}>
                                     {verdictStatus}
                                 </h3>
@@ -211,11 +220,11 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                         </div>
 
                         <div className="flex flex-wrap justify-center gap-3">
-                            <div className="px-4 py-2 bg-white/80 backdrop-blur-sm text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-100 shadow-sm flex items-center gap-2">
-                                <span className="text-sm">📍</span> {formatRegionLocale(initialBeaches[0].region)}
+                            <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-slate-700">
+                                <span className="text-base">📍</span> {formatRegionLocale(initialBeaches[0]?.region)}
                             </div>
-                            <div className="px-4 py-2 bg-white/80 backdrop-blur-sm text-sky-600 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-sky-100 shadow-sm flex items-center gap-2">
-                                🌬️ {formatWindLocale(initialBeaches[0].idealWind)}
+                            <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-sky-600">
+                                <span className="text-base text-sky-400">🌬️</span> {formatWindLocale(selectedForecast.windDir)}
                             </div>
                         </div>
                     </div>
@@ -319,7 +328,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                     
                     <div className="max-w-3xl mx-auto relative z-10 text-center md:text-left">
                         <h3 className="text-2xl font-black mb-2 uppercase tracking-tight flex items-center justify-center md:justify-start gap-3">
-                            <span className="text-3xl">💬</span> Consultoria de Praia <span className="text-sky-400 text-xs font-black bg-sky-400/10 px-2 py-1 rounded border border-sky-400/20 ml-2">IA ATIVA</span>
+                            <span className="text-3xl">💬</span> Consultoria de Praia
                         </h3>
                         <p className="text-slate-400 text-sm font-medium leading-relaxed mb-8">
                             Nossa IA analisa em tempo real os dados de vento, balneabilidade e janelas de chuva para responder suas dúvidas. Tente perguntar sobre horários específicos ou perfis de lazer.
@@ -377,26 +386,24 @@ function RankItem({ item, color, i, rankingExpanded }: { item: any; color: strin
     return (
         <Link 
             href={`/praia/${slugify(item.name)}`} 
-            className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 hover:border-sky-200 hover:shadow-lg hover:shadow-slate-100 transition-all cursor-pointer group"
+            className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 hover:border-sky-200 hover:shadow-lg hover:shadow-slate-100 transition-all cursor-pointer group w-full overflow-hidden"
         >
-            <div className="flex items-center gap-4 flex-grow">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px] ${
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className={`w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center font-black text-[10px] ${
                     color === 'emerald' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                 }`}>
                     #{item.globalRank}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <h5 className="text-[12px] font-black text-slate-800 uppercase truncate group-hover:text-sky-600 transition-colors">
                         {item.name}
                     </h5>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight truncate">{item.offlineDesc}</p>
                 </div>
             </div>
-            <div className="text-right ml-4">
-                <div className="flex items-center gap-2 justify-end">
-                    <span className={`text-xs font-black ${color === 'emerald' ? 'text-emerald-600' : 'text-rose-600'}`}>{item.score}%</span>
-                </div>
-                <div className="w-16 h-1 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
+            <div className="text-right ml-4 flex-shrink-0 w-16">
+                <span className={`text-xs font-black ${color === 'emerald' ? 'text-emerald-600' : 'text-rose-600'}`}>{item.score}%</span>
+                <div className="w-full h-1 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
                     <div className={`${color === 'emerald' ? 'bg-emerald-500' : 'bg-rose-500'} h-full transition-all duration-1000`} style={{ width: `${item.score}%` }}></div>
                 </div>
             </div>

@@ -70,8 +70,8 @@ export default async function Home() {
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
       <header className="text-center mb-8 gap-2 flex flex-col items-center">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight uppercase italic leading-none">
-          inDica Praia <span className="text-sky-500 font-black">VIP</span> 🏖️
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight uppercase italic leading-none flex items-center gap-3">
+          inDica Praia 🏖️
         </h1>
         <p className="mt-2 text-slate-400 font-medium text-[10px] sm:text-xs uppercase tracking-[0.2em]">
           Previsão e Inteligência para os próximos dias

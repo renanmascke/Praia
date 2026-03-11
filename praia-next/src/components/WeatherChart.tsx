@@ -64,7 +64,9 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
                 type: 'bar' as const,
                 label: 'Chuva (mm)',
                 data: hourlyData.map(h => h.rain),
-                backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                backgroundColor: 'rgba(56, 189, 248, 0.5)',
+                borderColor: 'rgba(56, 189, 248, 0.8)',
+                borderWidth: 1,
                 yAxisID: 'y1'
             }
         ]
@@ -74,21 +76,44 @@ export default function WeatherChart({ hourlyData }: { hourlyData: HourlyData[] 
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: { display: true, position: 'top' as const, labels: { boxWidth: 10, font: { size: 10 } } },
+            legend: { 
+                display: true, 
+                position: 'top' as const, 
+                labels: { 
+                    boxWidth: 10, 
+                    font: { size: 10, weight: 'bold' as any },
+                    padding: 15
+                } 
+            },
             tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                padding: 12,
+                titleFont: { size: 12, weight: 'bold' as any },
+                bodyFont: { size: 12 },
                 callbacks: {
                     label: (c: any) => {
                         if (c.datasetIndex === 0) return ` Temperatura: ${c.raw}°C`;
-                        if (c.datasetIndex === 1) return ` Vento: ${c.raw}km/h`;
-                        return ` Chuva: ${c.raw}mm`;
+                        if (c.datasetIndex === 1) return ` Vento: ${c.raw} km/h`;
+                        return ` Chuva: ${c.raw} mm`;
                     }
                 }
             }
         },
         scales: {
-            y: { min: 10, max: 40, ticks: { callback: (v: any) => v + '°C', font: { size: 9 } } },
-            y1: { type: 'linear' as const, display: false, position: 'right' as const, min: 0, max: 50 },
-            y2: { type: 'linear' as const, display: false, position: 'right' as const, min: 0, max: 60 }
+            y: { 
+                min: 10, 
+                max: 45, 
+                grid: { color: '#f1f5f9' },
+                ticks: { callback: (v: any) => v + '°', font: { size: 10, weight: 'bold' as any }, color: '#64748b' } 
+            },
+            y1: { 
+                type: 'linear' as const, 
+                display: false, 
+                position: 'right' as const, 
+                min: 0, 
+                max: 20, // Reduzido de 50 para 20 para as barras ficarem mais visíveis
+                grid: { drawOnChartArea: false }
+            }
         }
     };
 
