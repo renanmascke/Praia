@@ -4,7 +4,7 @@ import DashboardClient from '@/components/DashboardClient';
 export const revalidate = 3600; // Cache de 1 hora na Vercel CDN
 
 export default async function Home() {
-  const today = new Date();
+  const today = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
   today.setHours(0, 0, 0, 0);
 
   // 0. Buscar configuração de horizonte de dias

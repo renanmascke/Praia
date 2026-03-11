@@ -234,38 +234,45 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
             {/* PAINEL PRINCIPAL */}
             <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden mb-12 relative transition-all duration-500">
 
-                {/* Bloco 1: Veredito & Insight */}
-                <div className={`p-6 md:p-10 text-center border-b border-slate-50 relative overflow-hidden ${theme === 'rose' ? 'bg-rose-50/10' : 'bg-emerald-50/10'}`}>
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-white/50 to-transparent pointer-events-none"></div>
-                    
-                    <h2 className="relative z-10 text-[10px] sm:text-xs font-black tracking-[0.3em] uppercase mb-4 text-slate-400/80">
+                {/* Bloco 1: Veredito e Insight (Visual Admin) */}
+                <div className="p-6 md:p-8 bg-white border-b border-slate-50">
+                    <h2 className="text-[10px] font-bold tracking-[0.2em] uppercase mb-6 text-slate-400 text-center">
                         {dateStr}
                     </h2>
 
-                    <div className="relative z-10 flex flex-col items-center justify-center gap-6 mb-8">
+                    <div className="max-w-4xl mx-auto flex flex-col gap-6">
                         {citySummary ? (
-                            <div className="max-w-3xl mx-auto">
-                                <h3 className={`text-xl md:text-2xl font-extrabold tracking-tight leading-tight uppercase text-slate-800 mb-4`}>
-                                    {renderBoldText(citySummary)}
-                                </h3>
-                                <div className="w-12 h-1 bg-sky-500 mx-auto rounded-full mb-4"></div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
+                            <div className="bg-slate-50/80 rounded-2xl p-6 border border-slate-100 flex gap-4 items-start shadow-sm shadow-slate-100/50">
+                                <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-xl">
+                                    ✨
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-[10px] font-black text-sky-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        Análise do Especialista Local
+                                    </h4>
+                                    <div className="text-sm md:text-base font-medium text-slate-700 leading-relaxed text-left">
+                                        {renderBoldText(citySummary)}
+                                    </div>
+                                </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center gap-4">
-                                <h3 className={`text-2xl md:text-3xl font-black tracking-tighter leading-none uppercase text-${theme}-600 mb-1`}>
+                            <div className="text-center py-4">
+                                <h3 className={`text-2xl font-black uppercase text-${theme}-600 mb-1`}>
                                     {verdictStatus}
                                 </h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
                             </div>
                         )}
 
-                        <div className="flex flex-wrap justify-center gap-3">
-                            <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-slate-700">
-                                <span className="text-base">📍</span> Melhor Região: <span className="text-sky-600">{currentDaily?.bestAnchorName || "Qualquer Região"}</span>
-                            </div>
-                            <div className="px-5 py-2.5 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 shadow-sm flex items-center gap-2 text-sky-600">
-                                <span className="text-base text-sky-400">🌬️</span> {formatWindLocale(selectedForecast.windDir)}
+                        <div className="flex flex-col items-center gap-4">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">{descString}</p>
+                            
+                            <div className="flex flex-wrap justify-center gap-3 mt-2">
+                                <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-slate-100 flex items-center gap-2 text-slate-600">
+                                    <span className="text-sm">📍</span> Melhor Região: <span className="text-sky-600">{currentDaily?.bestAnchorName || "Qualquer Região"}</span>
+                                </div>
+                                <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-slate-100 flex items-center gap-2 text-sky-600">
+                                    <span className="text-sm text-sky-400">🌬️</span> {formatWindLocale(selectedForecast.windDir)}
+                                </div>
                             </div>
                         </div>
                     </div>
