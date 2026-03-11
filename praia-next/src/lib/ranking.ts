@@ -101,13 +101,20 @@ export async function calculateBeachScore(beach: any, forecast: any, report: any
         }
     }
 
-    // 4. Céu (10 pts)
+    // 4. Céu e Chuva (10 pts base + penalidade)
     if (forecast) {
         const condition = forecast.condition.toLowerCase();
         if (condition.includes('sol') || condition.includes('limpo') || condition.includes('céu aberto')) {
             score += 10;
         } else if (condition.includes('nublado')) {
             score += 5;
+        }
+
+        // Penalidade por Chuva Forte (pode zerar o score se for muito alta)
+        if (forecast.rainChance > 50 || forecast.rainAmount > 4) {
+            score -= 40;
+        } else if (forecast.rainChance > 30 || forecast.rainAmount > 1) {
+            score -= 15;
         }
     }
 
@@ -143,6 +150,9 @@ async function prepareBeachDataForAi(cityId: string, date: Date, beaches: any[])
             forecast: forecast ? {
                 condition: forecast.condition,
                 windDir: forecast.windDir,
+                windSpeed: forecast.windSpeed,
+                rainChance: forecast.rainChance,
+                rainAmount: forecast.rainAmount,
                 waveHeight: (forecast.hourlyData as any[])?.[12]?.waveHeight || 0
             } : null,
             report: report ? {

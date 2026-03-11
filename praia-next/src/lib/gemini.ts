@@ -39,7 +39,11 @@ export async function generateMultiDayRanking(cityName: string, dailyDataBatch: 
         1. Balneabilidade: Se for "Impróprio", score máximo 30. Se for "Mista", máximo 50. Se for "Próprio", base 70+.
         2. Vento: Se vento > 8km/h, priorize praias com "Vento Ideal" compatível. Se vento <= 8km/h, considere um dia premium ("mar de espelho").
         3. Mar: Ondas < 0.6m são ótimas para banho. Ondas > 1.2m são perigosas.
-        4. Chuva: Se Chance de Chuva > 40%, reduza a nota e mencione a instabilidade de forma clara.
+        4. Chuva (CRÍTICO): 
+           - Se Chance de Chuva > 80% ou Quantidade > 5mm: Score MÁXIMO 25 (Dia perdido).
+           - Se Chance de Chuva > 50% ou Quantidade > 2mm: Score MÁXIMO 45 (Instável).
+           - Se Chance de Chuva > 30%: Reduza a nota em pelo menos 15 pontos.
+           - Mencione a chuva no comentário se ela for o motivo da nota baixa.
 
         DADOS PARA PROCESSAR:
         ${JSON.stringify(dailyDataBatch, null, 2)}
