@@ -45,13 +45,14 @@ export async function runRankingSync(silent: boolean = false, step?: string, run
         `);
 
         // Notificar apenas no passo final
-        if (!silent && actualStep === 'summary') {
+        const isLastStep = rankingSteps.indexOf(actualStep) === rankingSteps.length - 1;
+        if (!silent && isLastStep) {
             await sendAdminNotification(`🏆 *Ranking Atualizado*\n\nStatus: 100% Concluído ✅`);
         }
 
         return { 
             success: true, 
-            finished: actualStep === 'summary', 
+            finished: isLastStep, 
             nextStep: rankingSteps[rankingSteps.indexOf(actualStep) + 1] || null,
             stepLabels: { current: actualStep },
             runId: actualRunId 

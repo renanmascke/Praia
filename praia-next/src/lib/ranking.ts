@@ -426,13 +426,20 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
         // ETAPA FINAL: DESTAQUE (Escolha do Melhor Dia pela IA)
         if (!step || step === 'highlight') {
             logWithTime(`>>> [CITY: ${city.name}] Elegendo o Melhor Dia do período...`);
-            if (logId) await addSyncStep(logId, `[${city.name}] Analisando boletins para eleger o Melhor Dia.`);
+            if (logId) await addSyncStep(logId, `[${city.name}] Analisando boletins futuros para eleger o Melhor Dia.`);
 
             try {
-                // Buscar todos os sumários recentes desta cidade
+                const { getBrazilToday } = await import('./date-utils');
+                const today = getBrazilToday();
+
+                // Buscar todos os sumários de HOJE em diante desta cidade (não apenas os processados neste loop)
                 const allSummaries = await prisma.cityDailySummary.findMany({
-                    where: { cityId: city.id, date: { in: datesToRank } },
-                    orderBy: { date: 'asc' }
+                    where: { 
+                        cityId: city.id, 
+                        date: { gte: today } 
+                    },
+                    orderBy: { date: 'asc' },
+                    take: 10 // Limitar a um horizonte razoável de 10 dias
                 });
 
                 if (allSummaries.length > 0) {
@@ -447,9 +454,12 @@ export async function triggerGlobalRankingUpdate(logId?: string, step?: string) 
                     if (bestDateStr) {
                         const bestDate = new Date(bestDateStr + 'T00:00:00Z');
                         
-                        // Resetar destaques anteriores para este período
+                        // Resetar destaques anteriores para este período futuro
                         await (prisma as any).cityDailySummary.updateMany({
-                            where: { cityId: city.id, date: { in: datesToRank } },
+                            where: { 
+                                cityId: city.id, 
+                                date: { gte: today } 
+                            },
                             data: { isBest: false }
                         });
 
