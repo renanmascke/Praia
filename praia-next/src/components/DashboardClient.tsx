@@ -200,20 +200,25 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                             const fd = new Date(forecast.date);
                             const fdISO = fd.toISOString().split('T')[0];
                             
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const isToday = fd.toDateString() === today.toDateString();
+                            // Usar fuso de Brasília para determinar "Hoje" no cliente também
+                            const now = new Date();
+                            const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
                             
-                            const tomorrow = new Date(today);
+                            const tomorrow = new Date(now);
                             tomorrow.setDate(tomorrow.getDate() + 1);
-                            const isTomorrow = fd.toDateString() === tomorrow.toDateString();
+                            const tomorrowStr = tomorrow.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
+                            // Se a data do forecast for anterior a hoje, não mostrar (segurança extra)
+                            if (fdISO < todayStr) return null;
+
+                            const isToday = fdISO === todayStr;
+                            const isTomorrow = fdISO === tomorrowStr;
                             const isBest = bestDayDate === fdISO;
                             
                             let label = "";
                             if (isToday) label = "Hoje";
                             else if (isTomorrow) label = "Amanhã";
-                            else label = fd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                            else label = fd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
 
                             const isActive = idx === selectedDayIdx;
                             return (
@@ -241,21 +246,7 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                     </h2>
 
                     <div className="max-w-4xl mx-auto flex flex-col gap-6">
-                        {citySummary ? (
-                            <div className="bg-slate-50/80 rounded-2xl p-6 border border-slate-100 flex gap-4 items-start shadow-sm shadow-slate-100/50">
-                                <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-xl">
-                                    ✨
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="text-[10px] font-black text-sky-600 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        Análise do Especialista Local
-                                    </h4>
-                                    <div className="text-sm md:text-base font-medium text-slate-700 leading-relaxed text-left">
-                                        {renderBoldText(citySummary)}
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
+                        {!citySummary && (
                             <div className="text-center py-4">
                                 <h3 className={`text-2xl font-black uppercase text-${theme}-600 mb-1`}>
                                     {verdictStatus}
@@ -275,6 +266,22 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
                                 </div>
                             </div>
                         </div>
+
+                        {citySummary && (
+                            <div className="bg-slate-50/80 rounded-2xl p-6 border border-slate-100 flex gap-4 items-start shadow-sm shadow-slate-100/50 mt-4">
+                                <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-xl">
+                                    ✨
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-[10px] font-black text-sky-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        Análise do Especialista Local
+                                    </h4>
+                                    <div className="text-sm md:text-base font-medium text-slate-700 leading-relaxed text-left">
+                                        {renderBoldText(citySummary)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

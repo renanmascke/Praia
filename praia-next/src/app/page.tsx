@@ -1,11 +1,11 @@
 import prisma from '@/lib/prisma';
 import DashboardClient from '@/components/DashboardClient';
+import { getBrazilToday } from '@/lib/date-utils';
 
 export const revalidate = 3600; // Cache de 1 hora na Vercel CDN
 
 export default async function Home() {
-  const today = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
-  today.setHours(0, 0, 0, 0);
+  const today = getBrazilToday();
 
   // 0. Buscar configuração de horizonte de dias
   const config = await (prisma as any).systemConfig.findUnique({ where: { key: 'ranking_sync_days' } });
