@@ -45,6 +45,12 @@ export async function generateMultiDayRanking(cityName: string, dailyDataBatch: 
            - Se Chance de Chuva > 30%: Reduza a nota em pelo menos 15 pontos.
            - Mencione a chuva no comentário se ela for o motivo da nota baixa.
 
+        REFERÊNCIA DE INTENSIDADE DE VENTO (km/h):
+        - 0 a 10: Vento fraco / Ausente (Dia Premium).
+        - 11 a 19: Vento moderado (Agradável).
+        - 20 a 30: Vento forte (Desconfortável para guarda-sol).
+        - Acima de 30: Vento muito forte (Inviável para banho).
+
         DADOS PARA PROCESSAR:
         ${JSON.stringify(dailyDataBatch, null, 2)}
         
@@ -157,6 +163,9 @@ export async function generateCityDailySummary(
         ESTRUTURA SUGERIDA:
         1. Resumo do Tempo: Céu, temperatura e risco de chuva (avisar claramente se > 40%).
         2. Dica do Especialista: Onde ir na **Manhã** vs **Tarde** baseado no vento e mar.
+           **REGRAS DE VENTO**:
+           - Se vento > 20km/h: Chame de "Vento Forte". NÃO diga que o dia é "espetacular" ou que o vento está "ausente".
+           - **VENTO DESFAVORÁVEL**: ALERTE se o vento estiver "entrando de frente" na região (ex: Sul no Sul, Leste no Leste, Nordeste no Norte). Explique que nessas condições o mar fica batido, com vento frontal e desconfortável para o lazer.
         3. Top Praias: Destaque as Top 3 do Ranking Sugerido com nomes em negrito.
 
         DADOS:

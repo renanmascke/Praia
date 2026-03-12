@@ -71,8 +71,8 @@ export default function DashboardClient({ initialBeaches, initialForecasts, dail
     const citySummary = currentDaily?.summary;
 
     // Cálculos de Veredito Rápido
-    const verdictStatus = (selectedForecast.rainAmount > 5 || selectedForecast.windSpeed > 25) ? "MELHOR EVITAR" : "VÁ À PRAIA";
-    const theme = (selectedForecast.rainAmount > 5 || selectedForecast.windSpeed > 25) ? "rose" : "emerald";
+    const verdictStatus = (selectedForecast.rainAmount > 5 || selectedForecast.windSpeed > 20) ? "MELHOR EVITAR" : "VÁ À PRAIA";
+    const theme = (selectedForecast.rainAmount > 5 || selectedForecast.windSpeed > 20) ? "rose" : "emerald";
     const descString = `${selectedForecast.condition} • ${Math.round(selectedForecast.tempMin)}° a ${Math.round(selectedForecast.tempMax)}° • ${Math.round(selectedForecast.windSpeed)}km/h`;
 
     // Data Legível

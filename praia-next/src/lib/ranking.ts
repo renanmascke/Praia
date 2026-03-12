@@ -69,8 +69,12 @@ export async function calculateBeachScore(beach: any, forecast: any, report: any
 
         if (idealWinds.includes(currentWindDir)) {
             score += 40; // Proteção máxima
+        } else if (forecast.windSpeed < 10) {
+            score += 35; // Vento muito fraco: direção importa pouco
+        } else if (forecast.windSpeed > 20) {
+            score -= 15; // Vento forte batendo de frente/fora do ideal
         } else {
-            score += 10;
+            score += 5;
         }
     }
 
