@@ -159,7 +159,7 @@ export default function DashboardClient({
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
                                     <span className="block text-[9px] text-slate-400 uppercase font-bold mb-1 tracking-widest">Predominante</span>
                                     <span id="wind-dir-display" className="block text-sm font-bold text-slate-800 uppercase">
-                                        ({selectedForecast.windDir}) {windDirToName(selectedForecast.windDir)}
+                                        {windDirToName(selectedForecast.windDir)}
                                     </span>
                                 </div>
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
@@ -330,13 +330,24 @@ function LoadingSkeleton() {
 }
 
 function windDirToName(dir: string) {
+    if (!dir) return "";
+    const cleanDir = dir.trim().toUpperCase();
     const map: Record<string, string> = {
+        // Siglas
         'N': 'Norte', 'S': 'Sul', 'E': 'Leste', 'W': 'Oeste',
         'NE': 'Nordeste', 'SE': 'Sudeste', 'NW': 'Noroeste', 'SW': 'Sudoeste',
         'NNE': 'Norte-Nordeste', 'ENE': 'Leste-Nordeste', 'ESE': 'Leste-Sudeste', 'SSE': 'Sul-Sudeste',
-        'SSW': 'Sul-Sudoeste', 'WSW': 'Oeste-Sudoeste', 'WNW': 'Oeste-Noroeste', 'NNW': 'Norte-Noroeste'
+        'SSW': 'Sul-Sudoeste', 'WSW': 'Oeste-Sudoeste', 'WNW': 'Oeste-Noroeste', 'NNW': 'Norte-Noroeste',
+        
+        // Nomes completos em inglês
+        'NORTH': 'Norte', 'SOUTH': 'Sul', 'EAST': 'Leste', 'WEST': 'Oeste',
+        'NORTHEAST': 'Nordeste', 'SOUTHEAST': 'Sudeste', 'NORTHWEST': 'Noroeste', 'SOUTHWEST': 'Sudoeste',
+        'NORTH_NORTHEAST': 'Norte-Nordeste', 'EAST_NORTHEAST': 'Leste-Nordeste', 
+        'EAST_SOUTHEAST': 'Leste-Sudeste', 'SOUTH_SOUTHEAST': 'Sul-Sudeste',
+        'SOUTH_SOUTHWEST': 'Sul-Sudoeste', 'WEST_SOUTHWEST': 'Oeste-Sudoeste', 
+        'WEST_NORTHWEST': 'Oeste-Noroeste', 'NORTH_NORTHWEST': 'Norte-Noroeste'
     };
-    return map[dir] || dir;
+    return map[cleanDir] || dir;
 }
 
 function renderBoldText(text: string) {
