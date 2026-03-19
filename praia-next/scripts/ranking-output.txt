@@ -1,0 +1,4 @@
+﻿Total rankings found in DB: 136
+Rankings for first day (2026-03-17): 34
+First ranking beach cityId: 7279dd5f-b89c-4567-bd1b-6f49dd477c87
+Target cityId: 7279dd5f-b89c-4567-bd1b-6f49dd477c87

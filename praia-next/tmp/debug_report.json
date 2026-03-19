@@ -1,0 +1,102 @@
+{
+  "systemConfigs": [
+    {
+      "key": "RANKING_SYNC_DAYS",
+      "value": "4",
+      "description": "Dias de geração de ranking/dica IA (incluindo hoje)",
+      "updatedAt": "2026-03-11T14:12:48.004Z"
+    },
+    {
+      "key": "WEATHER_SYNC_DAYS",
+      "value": "8",
+      "description": "Dias de previsão do tempo (incluindo hoje)",
+      "updatedAt": "2026-03-11T14:12:48.925Z"
+    }
+  ],
+  "latestLogs": [
+    {
+      "id": "1fb62437-124e-44b4-a6af-68bd497de747",
+      "runId": "1a77a804-ea83-45ed-a1bb-f54cd95427fc",
+      "type": "WEATHER",
+      "startTime": "2026-03-17T20:08:14.237Z",
+      "endTime": "2026-03-17T20:08:32.461Z",
+      "status": "SUCCESS",
+      "message": "Sucesso: [STEP: weather] concluído via Google. (8 chamadas).",
+      "response": {
+        "weatherCalls": 8
+      },
+      "createdAt": "2026-03-17T20:08:14.238Z",
+      "updatedAt": "2026-03-17T20:08:32.462Z"
+    },
+    {
+      "id": "f74c2a0b-37a4-4830-994f-49e8fcf5d460",
+      "runId": "59ffbf4c-b6d8-402f-88a6-87df72baf01c",
+      "type": "RANKING",
+      "startTime": "2026-03-17T20:07:37.063Z",
+      "endTime": "2026-03-17T20:07:48.194Z",
+      "status": "SUCCESS",
+      "message": "Sucesso: [STEP: highlight] concluído.",
+      "response": null,
+      "createdAt": "2026-03-17T20:07:37.064Z",
+      "updatedAt": "2026-03-17T20:07:48.195Z"
+    },
+    {
+      "id": "b16897b0-d9ed-4227-bce4-6fa562aa71f8",
+      "runId": "59ffbf4c-b6d8-402f-88a6-87df72baf01c",
+      "type": "RANKING",
+      "startTime": "2026-03-17T20:06:46.122Z",
+      "endTime": "2026-03-17T20:07:33.819Z",
+      "status": "SUCCESS",
+      "message": "Sucesso: [STEP: summary] concluído.",
+      "response": null,
+      "createdAt": "2026-03-17T20:06:46.123Z",
+      "updatedAt": "2026-03-17T20:07:33.819Z"
+    },
+    {
+      "id": "d387bb71-f377-4121-896b-82d4fbd10281",
+      "runId": "59ffbf4c-b6d8-402f-88a6-87df72baf01c",
+      "type": "RANKING",
+      "startTime": "2026-03-17T20:05:13.860Z",
+      "endTime": "2026-03-17T20:06:42.992Z",
+      "status": "SUCCESS",
+      "message": "Sucesso: [STEP: ai-block-1] concluído.",
+      "response": null,
+      "createdAt": "2026-03-17T20:05:13.861Z",
+      "updatedAt": "2026-03-17T20:06:42.993Z"
+    },
+    {
+      "id": "a8b7688e-d2b3-450b-b7a2-6b949aaa3045",
+      "runId": "59ffbf4c-b6d8-402f-88a6-87df72baf01c",
+      "type": "RANKING",
+      "startTime": "2026-03-17T20:01:26.055Z",
+      "endTime": "2026-03-17T20:05:09.732Z",
+      "status": "SUCCESS",
+      "message": "Sucesso: [STEP: ai-block-0] concluído.",
+      "response": null,
+      "createdAt": "2026-03-17T20:01:26.056Z",
+      "updatedAt": "2026-03-17T20:05:09.733Z"
+    }
+  ],
+  "anchorsForecasts": [
+    {
+      "name": "Norte da Ilha",
+      "count": 16,
+      "lastDate": "2026-03-21T00:00:00.000Z"
+    },
+    {
+      "name": "Leste da Ilha",
+      "count": 16,
+      "lastDate": "2026-03-21T00:00:00.000Z"
+    },
+    {
+      "name": "Sul da Ilha",
+      "count": 16,
+      "lastDate": "2026-03-21T00:00:00.000Z"
+    },
+    {
+      "name": "Florianópolis (Centro)",
+      "count": 16,
+      "lastDate": "2026-03-21T00:00:00.000Z"
+    }
+  ]
+}

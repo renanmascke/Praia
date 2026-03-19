@@ -1,0 +1,15 @@
+﻿--- Cidades ---
+ID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87, Name: Florian├│polis
+
+--- Pontos de Refer├¬ncia (Anchors) ---
+ID: 89d38d59-1046-4e6e-bc02-023aa24abea6, Name: Norte da Ilha, CityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87, CityName: Florian├│polis
+ID: 9442ef5e-67e7-4ed8-907a-601f1d353af2, Name: Leste da Ilha, CityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87, CityName: Florian├│polis
+ID: a03b0dfb-e302-4054-87ab-766b8845dc63, Name: Sul da Ilha, CityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87, CityName: Florian├│polis
+ID: a8746b04-3237-4165-b31a-f4e4f61c161b, Name: Florian├│polis (Centro), CityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87, CityName: Florian├│polis
+
+--- Algumas Previs├Áes ---
+Date: 2026-03-07T00:00:00.000Z, Anchor: Norte da Ilha, AnchorCityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87
+Date: 2026-03-16T00:00:00.000Z, Anchor: Florian├│polis (Centro), AnchorCityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87
+Date: 2026-03-17T00:00:00.000Z, Anchor: Norte da Ilha, AnchorCityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87
+Date: 2026-03-24T00:00:00.000Z, Anchor: Florian├│polis (Centro), AnchorCityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87
+Date: 2026-03-08T00:00:00.000Z, Anchor: Sul da Ilha, AnchorCityID: 7279dd5f-b89c-4567-bd1b-6f49dd477c87
